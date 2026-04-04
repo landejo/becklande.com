@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -14,7 +14,7 @@
       --cyan: #2ee6ff;
       --pink: #ff4fd8;
       --yellow: #ffd84d;
-      --panel: rgba(7, 16, 28, 0.72);
+      --panel: rgba(7, 16, 28, 0.78);
       --text: #eef8ff;
       --muted: rgba(238, 248, 255, 0.74);
     }
@@ -300,7 +300,7 @@
         h = window.innerHeight;
         canvas.width = w;
         canvas.height = h;
-        if (!game.running) game.player.y = groundY() - game.player.size;
+        if (!game.running) game.player.y = groundY() - game.player.size / 2;
       }
 
       function groundY() {
@@ -377,7 +377,7 @@
         game.obstacles = [];
         spikes.forEach(x => game.obstacles.push({ type: 'spike', x, w: 34, h: 24 }));
         blocks.forEach(b => game.obstacles.push({ type: 'block', x: b.x, w: b.w, h: b.h }));
-        game.stars = stars.map(s => ({ ...s, taken: false }));
+        game.stars = stars.map(s => ({ x: s.x, y: s.y, taken: false }));
 
         game.deco = [];
         for (let i = 0; i < 90; i++) {
@@ -399,7 +399,7 @@
         game.cameraShake = 0;
         game.flash = 0;
         game.player.x = Math.max(110, Math.min(230, w * 0.21));
-        game.player.y = groundY() - game.player.size;
+        game.player.y = groundY() - game.player.size / 2;
         game.player.vy = 0;
         game.player.rotation = 0;
         game.player.onGround = true;
@@ -426,7 +426,6 @@
         game.ended = false;
         startScreen.classList.remove('hidden');
         gameOverScreen.classList.add('hidden');
-        drawMenuBackdrop();
       }
 
       function updateProgress() {
@@ -500,15 +499,19 @@
         return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
       }
 
+      function updateParticles() {
+        for (let i = game.particles.length - 1; i >= 0; i--) {
+          const p = game.particles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          p.a -= 0.02;
+          if (p.a <= 0) game.particles.splice(i, 1);
+        }
+      }
+
       function update() {
         if (!game.running) {
-          for (let i = game.particles.length - 1; i >= 0; i--) {
-            const p = game.particles[i];
-            p.x += p.vx;
-            p.y += p.vy;
-            p.a -= 0.02;
-            if (p.a <= 0) game.particles.splice(i, 1);
-          }
+          updateParticles();
           game.cameraShake = Math.max(0, game.cameraShake - 0.6);
           game.flash = Math.max(0, game.flash - 0.025);
           return;
@@ -609,6 +612,8 @@
             }
           }
         }
+
+        updateParticles();
 
         if (game.scrollX >= levelLength) {
           game.completion = 100;
@@ -750,6 +755,7 @@
         drawObstacles();
         drawStars();
         drawPlayer();
+        drawFlash();
         ctx.restore();
       }
 
@@ -788,7 +794,6 @@
         if (game.running) queueJump();
       });
       jumpBtn.addEventListener('click', pressAction);
-
       startBtn.addEventListener('click', () => start(false));
       practiceBtn.addEventListener('click', () => start(true));
       retryBtn.addEventListener('click', () => start(practiceMode));
