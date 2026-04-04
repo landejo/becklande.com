@@ -77,131 +77,308 @@ button{
 </div>
 
 <script>
-let keyBuffer="";
-window.addEventListener("keydown",e=>{
-  keyBuffer+=e.key.toLowerCase();
-  if(keyBuffer.includes("leo")) startGame();
-  keyBuffer=keyBuffer.slice(-10);
-});
+let keyBuffer = "";
+let taps = 0;
+let gameStarted = false;
+let canvas, ctx, leoImg, loop;
+let score = 0;
+let best = Number(localStorage.getItem("leoRunnerBest") || 0);
+let gameState = "idle";
 
-let taps=0;
-document.getElementById("title").addEventListener("click",()=>{
-  taps++; if(taps===3) startGame();
-  setTimeout(()=>taps=0,500);
-});
+const titleEl = document.getElementById("title");
+const scoreEl = document.getElementById("score");
+const gameOverEl = document.getElementById("gameover");
+const canvasEl = document.getElementById("game");
 
-let canvas,ctx,player,gravity,obstacles,speed,score,loop,leoImg;
-
-function startGame(){
-  canvas=document.getElementById("game");
-  ctx=canvas.getContext("2d");
-  document.getElementById("score").style.display="block";
-  canvas.style.display="block";
-
-  canvas.width=window.innerWidth;
-  canvas.height=window.innerHeight;
-
-leoImg = new Image();
-leoImg.src = "leo_sprite_pro.png";
-
-leoImg.onload = () => {
-  resetGame();
-  update();
+const groundHeight = 84;
+const player = {
+  x: 88,
+  y: 0,
+  w: 64,
+  h: 64,
+  vy: 0,
+  jumpPower: 15.5,
+  gravity: 0.72
 };
 
-  resetGame();
-  update();
+let obstacles = [];
+let particles = [];
+let spawnTimer = 0;
+let speed = 7;
+let baseY = 0;
+
+window.addEventListener("keydown", e => {
+  keyBuffer += e.key.toLowerCase();
+  if (keyBuffer.includes("leo")) revealGame();
+  keyBuffer = keyBuffer.slice(-10);
+
+  if (e.code === "Space" || e.code === "ArrowUp") {
+    e.preventDefault();
+    handleAction();
+  }
+
+  if (e.key.toLowerCase() === "r" && gameState === "gameover") {
+    restart();
+  }
+});
+
+titleEl.addEventListener("click", () => {
+  taps++;
+  if (taps === 3) revealGame();
+  setTimeout(() => taps = 0, 500);
+});
+
+window.addEventListener("touchstart", e => {
+  if (!gameStarted) return;
+  e.preventDefault();
+  handleAction();
+}, { passive: false });
+
+window.addEventListener("resize", () => {
+  if (!gameStarted) return;
+  resizeGame();
+});
+
+function revealGame() {
+  if (gameStarted) return;
+  gameStarted = true;
+  canvas = canvasEl;
+  ctx = canvas.getContext("2d");
+  canvas.style.display = "block";
+  scoreEl.style.display = "block";
+  titleEl.parentElement.style.opacity = "0";
+
+  leoImg = new Image();
+  leoImg.src = "leo_sprite_v2.png";
+  leoImg.onload = () => {
+    initGame();
+    run();
+  };
+  leoImg.onerror = () => {
+    initGame();
+    run();
+  };
 }
 
-function resetGame(){
-  player={x:80,y:canvas.height-120,vy:0,size:60};
-  gravity=0.6;
-  obstacles=[];
-  speed=6;
-  score=0;
-  document.getElementById("gameover").style.display="none";
-}
-
-function spawn(){
-  obstacles.push({
-    x:canvas.width+50,
-    y:canvas.height-100,
-    w:30+Math.random()*30,
-    h:40
-  });
-}
-
-function drawPlayer(){
-  if(leoImg.complete){
-    ctx.drawImage(leoImg, player.x-30, player.y-30, 60, 60);
+function resizeGame() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  baseY = canvas.height - groundHeight;
+  if (player.y === 0 || player.y > baseY - player.h) {
+    player.y = baseY - player.h;
   }
 }
 
-function update(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
+function initGame() {
+  resizeGame();
+  restart();
+}
 
-  ctx.fillStyle="#222";
-  ctx.fillRect(0,canvas.height-80,canvas.width,2);
+function restart() {
+  score = 0;
+  speed = 7;
+  spawnTimer = 0;
+  obstacles = [];
+  particles = [];
+  player.vy = 0;
+  player.y = baseY - player.h;
+  gameState = "running";
+  gameOverEl.style.display = "none";
+  updateScore();
+}
 
-  player.vy+=gravity;
-  player.y+=player.vy;
+function handleAction() {
+  if (!gameStarted) return;
+  if (gameState === "gameover") {
+    restart();
+    return;
+  }
+  jump();
+}
 
-  if(player.y>canvas.height-100){player.y=canvas.height-100;player.vy=0}
+function jump() {
+  const onGround = player.y >= baseY - player.h - 0.5;
+  if (!onGround) return;
+  player.vy = -player.jumpPower;
+}
 
-  drawPlayer();
+function spawnObstacle() {
+  const h = 28 + Math.random() * 22;
+  const w = 18 + Math.random() * 16;
+  obstacles.push({
+    x: canvas.width + 20,
+    y: baseY - h,
+    w,
+    h
+  });
+}
 
-  ctx.fillStyle="#22c55e";
-  obstacles.forEach((o,i)=>{
-    o.x-=speed;
-    ctx.fillRect(o.x,o.y,o.w,o.h);
+function addDust() {
+  particles.push({
+    x: player.x + player.w * 0.3,
+    y: baseY - 6,
+    r: 2 + Math.random() * 3,
+    vx: -1 - Math.random() * 2,
+    vy: -0.5 - Math.random(),
+    a: 0.28 + Math.random() * 0.15
+  });
+}
 
-    if(o.x<player.x+20 && o.x+o.w>player.x-20 && player.y>o.y-20){
-      gameOver(); return;
+function update() {
+  if (gameState !== "running") return;
+
+  player.vy += player.gravity;
+  player.y += player.vy;
+
+  if (player.y >= baseY - player.h) {
+    if (player.vy > 1) addDust();
+    player.y = baseY - player.h;
+    player.vy = 0;
+  }
+
+  spawnTimer--;
+  if (spawnTimer <= 0) {
+    spawnObstacle();
+    spawnTimer = Math.max(48, 92 - speed * 4 + Math.random() * 24);
+  }
+
+  for (let i = obstacles.length - 1; i >= 0; i--) {
+    const o = obstacles[i];
+    o.x -= speed;
+
+    const hitbox = {
+      x: player.x + 12,
+      y: player.y + 10,
+      w: player.w - 24,
+      h: player.h - 18
+    };
+
+    if (
+      hitbox.x < o.x + o.w &&
+      hitbox.x + hitbox.w > o.x &&
+      hitbox.y < o.y + o.h &&
+      hitbox.y + hitbox.h > o.y
+    ) {
+      gameOver();
     }
 
-    if(o.x+o.w<0) obstacles.splice(i,1);
-  });
+    if (o.x + o.w < 0) {
+      obstacles.splice(i, 1);
+      score++;
+      if (score > best) {
+        best = score;
+        localStorage.setItem("leoRunnerBest", String(best));
+      }
+      updateScore();
+    }
+  }
 
-  score++;
-  speed += 0.002; // difficulty ramp
-  document.getElementById("score").innerText=score;
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.a -= 0.015;
+    if (p.a <= 0) particles.splice(i, 1);
+  }
 
-  if(Math.random()<0.02) spawn();
-
-  loop=requestAnimationFrame(update);
+  speed += 0.0025;
 }
 
-function jump(){
-  if(player.y>=canvas.height-100){
-    player.vy=-12;
-    playBeep(200);
+function updateScore() {
+  scoreEl.textContent = `Score ${score} · Best ${best}`;
+}
+
+function gameOver() {
+  gameState = "gameover";
+  gameOverEl.innerHTML = `<div>Game Over</div><button onclick="restart()">Play Again</button>`;
+  gameOverEl.style.display = "flex";
+}
+
+function drawBackground() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const sky = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  sky.addColorStop(0, "#0a0a0a");
+  sky.addColorStop(1, "#101312");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.globalAlpha = 0.08;
+  for (let x = 0; x < canvas.width; x += 24) {
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(x, 0, 1, canvas.height);
+  }
+  for (let y = 0; y < canvas.height; y += 24) {
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, y, canvas.width, 1);
+  }
+  ctx.globalAlpha = 1;
+
+  ctx.fillStyle = "#181818";
+  ctx.fillRect(0, baseY, canvas.width, groundHeight);
+  ctx.fillStyle = "rgba(34,197,94,0.35)";
+  ctx.fillRect(0, baseY, canvas.width, 2);
+}
+
+function drawPlayer() {
+  const squash = player.y >= baseY - player.h - 0.5 ? Math.min(1.04, 1 + speed * 0.002) : 0.98;
+  const drawW = player.w * squash;
+  const drawH = player.h / squash;
+  const drawX = player.x - (drawW - player.w) / 2;
+  const drawY = player.y + (player.h - drawH);
+
+  if (leoImg && leoImg.complete && leoImg.naturalWidth > 0) {
+    ctx.drawImage(leoImg, drawX, drawY, drawW, drawH);
+  } else {
+    ctx.fillStyle = "#d4a373";
+    ctx.beginPath();
+    ctx.arc(player.x + player.w / 2, player.y + player.h / 2, 28, 0, Math.PI * 2);
+    ctx.fill();
   }
 }
 
-function gameOver(){
-  cancelAnimationFrame(loop);
-  playBeep(80);
-  document.getElementById("gameover").style.display="flex";
+function drawObstacles() {
+  ctx.fillStyle = "#22c55e";
+  for (const o of obstacles) {
+    ctx.fillRect(o.x, o.y, o.w, o.h);
+    ctx.fillStyle = "rgba(255,255,255,0.08)";
+    ctx.fillRect(o.x, o.y, o.w, 3);
+    ctx.fillStyle = "#22c55e";
+  }
 }
 
-function restart(){
-  resetGame();
+function drawParticles() {
+  for (const p of particles) {
+    ctx.fillStyle = `rgba(255,255,255,${p.a})`;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawHint() {
+  if (score > 0 || gameState !== "running") return;
+  ctx.fillStyle = "rgba(255,255,255,0.65)";
+  ctx.font = "16px Inter, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("Tap or press space to jump", canvas.width / 2, 52);
+}
+
+function render() {
+  drawBackground();
+  drawParticles();
+  drawObstacles();
+  drawPlayer();
+  drawHint();
+}
+
+function run() {
   update();
+  render();
+  loop = requestAnimationFrame(run);
 }
 
-// simple sound
-function playBeep(freq){
-  const ctx=new (window.AudioContext||window.webkitAudioContext)();
-  const osc=ctx.createOscillator();
-  osc.type="square";
-  osc.frequency.value=freq;
-  osc.connect(ctx.destination);
-  osc.start();
-  osc.stop(ctx.currentTime+0.1);
-}
-
-window.addEventListener("keydown",e=>{ if(e.code==="Space") jump(); });
-window.addEventListener("touchstart",jump);
+window.restart = restart;
 </script>
 
 </body>
