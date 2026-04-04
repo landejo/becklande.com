@@ -107,117 +107,123 @@ let canvas, ctx, leoImg, loop;
 let score = 0;
 let best = Number(localStorage.getItem("leoRunnerBest") || 0);
 let gameState = "idle";
-
-// --- AUDIO ---
-let audioCtx;
-let musicInterval;
-
-function initAudio() {
-  if (!audioCtx) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
-}
-
-function playJumpSound() {
-  if (!audioCtx) return;
-  const o = audioCtx.createOscillator();
-  const g = audioCtx.createGain();
-  o.type = "square";
-  o.frequency.value = 320;
-  g.gain.value = 0.1;
-  o.connect(g);
-  g.connect(audioCtx.destination);
-  o.start();
-  o.stop(audioCtx.currentTime + 0.08);
-}
-
-function playCrashSound() {
-  if (!audioCtx) return;
-  const o = audioCtx.createOscillator();
-  const g = audioCtx.createGain();
-  o.type = "sawtooth";
-  o.frequency.value = 90;
-  g.gain.value = 0.15;
-  o.connect(g);
-  g.connect(audioCtx.destination);
-  o.start();
-  o.stop(audioCtx.currentTime + 0.2);
-}
-
-function startMusic() {
-  if (!audioCtx) return;
-  if (musicInterval) return;
-
-  const notes = [220, 262, 294, 262, 330, 294];
-  let i = 0;
-
-  musicInterval = setInterval(() => {
-    if (gameState !== "running") return;
-
-    const o = audioCtx.createOscillator();
-    const g = audioCtx.createGain();
-
-    o.type = "square";
-    o.frequency.value = notes[i % notes.length];
-
-    g.gain.value = 0.06;
-
-    o.connect(g);
-    g.connect(audioCtx.destination);
-
-    o.start();
-    o.stop(audioCtx.currentTime + 0.12);
-
-    i++;
-  }, 180);
-}
-
-function stopMusic() {
-  clearInterval(musicInterval);
-  musicInterval = null;
-}
+let audioCtx = null;
+let musicTimer = null;
+let musicStep = 0;
 
 const titleEl = document.getElementById("title");
 const scoreEl = document.getElementById("score");
 const gameOverEl = document.getElementById("gameover");
 const canvasEl = document.getElementById("game");
 
-const groundHeight = 84;
-const player = { x: 88, y: 0, w: 64, h: 64, vy: 0, jumpPower: 15.5, gravity: 0.72 };
+const groundHeight = 86;
+const player = {
+  x: 92,
+  y: 0,
+  w: 64,
+  h: 64,
+  vy: 0,
+  gravity: 0.78,
+  jumpPower: 15.5,
+  rotation: 0
+};
 
 let obstacles = [];
 let particles = [];
-let spawnTimer = 0;
-let speed = 7;
 let baseY = 0;
-let gameOverTimer = 0;
-let crashFlash = 0;
-let leoRotation = 0;
-let impactX = 0;
+let speed = 7;
+let spawnTimer = 0;
 let shake = 0;
+let flash = 0;
 
-window.addEventListener("keydown", e => {
-  keyBuffer += e.key.toLowerCase();
-  if (keyBuffer.includes("leo")) revealGame();
-  keyBuffer = keyBuffer.slice(-10);
-
-  if (e.code === "Space" || e.code === "ArrowUp") {
-    e.preventDefault();
-    handleAction();
+function initAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   }
-});
+  if (audioCtx.state === "suspended") {
+    audioCtx.resume();
+  }
+}
 
-titleEl.addEventListener("click", () => {
-  taps++;
-  if (taps === 3) revealGame();
-  setTimeout(() => taps = 0, 500);
-});
+function beep(freq, duration, type = "square", volume = 0.035, slideTo = null) {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  if (slideTo) {
+    osc.frequency.exponentialRampToValueAtTime(slideTo, audioCtx.currentTime + duration);
+  }
+  gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + duration);
+}
 
-window.addEventListener("touchstart", e => {
-  if (!gameStarted) return;
-  e.preventDefault();
-  handleAction();
-}, { passive: false });
+function playJumpSound() {
+  beep(420, 0.08, "square", 0.04, 620);
+}
+
+function playCrashSound() {
+  beep(180, 0.18, "sawtooth", 0.06, 70);
+}
+
+function playMusicTick() {
+  if (!audioCtx || gameState !== "running") return;
+
+  const leadA = [330, 392, 440, 523, 440, 392, 330, 392];
+  const leadB = [494, 523, 587, 659, 587, 523, 494, 440];
+  const bass = [110, 110, 147, 147, 165, 147, 110, 98];
+  const harmony = [220, 247, 294, 330, 294, 247, 220, 196];
+
+  const section = Math.floor(musicStep / 16) % 2;
+  const pattern = section === 0 ? leadA : leadB;
+  const i = musicStep % 8;
+
+  const tempoBoost = Math.min(0.012, Math.max(0, (speed - 7) * 0.0009));
+  const leadVol = 0.022 + tempoBoost;
+  const bassVol = 0.02 + tempoBoost * 0.7;
+  const hatVol = 0.008 + tempoBoost * 0.4;
+
+  beep(pattern[i], 0.11, "square", leadVol);
+
+  if (musicStep % 2 === 0) {
+    beep(bass[i], 0.18, "triangle", bassVol);
+  }
+
+  if (musicStep % 4 === 1 || musicStep % 4 === 3) {
+    beep(harmony[i], 0.06, "square", 0.010 + tempoBoost * 0.3);
+  }
+
+  // hi-hat style click
+  if (musicStep % 2 === 1) {
+    beep(1200, 0.02, "square", hatVol, 900);
+  }
+
+  // accent pulse every 8 beats
+  if (musicStep % 8 === 0) {
+    beep(82, 0.22, "sawtooth", 0.012 + tempoBoost * 0.3, 70);
+  }
+
+  musicStep += 1;
+}
+
+function startMusic() {
+  stopMusic();
+  musicStep = 0;
+  musicTimer = setInterval(() => {
+    playMusicTick();
+  }, 155);
+}
+
+function stopMusic() {
+  if (musicTimer) {
+    clearInterval(musicTimer);
+    musicTimer = null;
+  }
+}
 
 function revealGame() {
   if (gameStarted) return;
@@ -231,19 +237,25 @@ function revealGame() {
   titleEl.parentElement.style.opacity = "0";
 
   leoImg = new Image();
-  leoImg.src = "leo_sprite_v2.png";
+  const spriteCandidates = ["leo_sprite_v2.png", "leo_sprite_pro.png", "leo.png"];
+  let idx = 0;
 
   leoImg.onload = () => {
     initGame();
     startMusic();
     run();
   };
-
   leoImg.onerror = () => {
-    initGame();
-    startMusic();
-    run();
+    idx += 1;
+    if (idx < spriteCandidates.length) {
+      leoImg.src = spriteCandidates[idx];
+    } else {
+      initGame();
+      startMusic();
+      run();
+    }
   };
+  leoImg.src = spriteCandidates[idx];
 }
 
 function resizeGame() {
@@ -263,23 +275,23 @@ function initGame() {
 function restart() {
   score = 0;
   speed = 7;
-  spawnTimer = 0;
+  spawnTimer = 55;
   obstacles = [];
   particles = [];
+  shake = 0;
+  flash = 0;
   player.vy = 0;
+  player.rotation = 0;
   player.y = baseY - player.h;
   gameState = "running";
-  gameOverTimer = 0;
-  crashFlash = 0;
-  leoRotation = 0;
-  impactX = 0;
-  shake = 0;
   gameOverEl.classList.remove("show");
   gameOverEl.style.display = "none";
   updateScore();
+  startMusic();
 }
 
 function handleAction() {
+  initAudio();
   if (!gameStarted) return;
   if (gameState === "gameover") {
     restart();
@@ -298,11 +310,43 @@ function jump() {
 function spawnObstacle() {
   const h = 28 + Math.random() * 22;
   const w = 18 + Math.random() * 16;
-  obstacles.push({ x: canvas.width + 20, y: baseY - h, w, h });
+  obstacles.push({
+    x: canvas.width + 20,
+    y: baseY - h,
+    w,
+    h
+  });
+}
+
+function addImpactParticles() {
+  for (let i = 0; i < 22; i++) {
+    particles.push({
+      x: player.x + player.w * 0.5,
+      y: player.y + player.h * 0.6,
+      r: 2 + Math.random() * 4,
+      vx: -4 + Math.random() * 8,
+      vy: -4 + Math.random() * 4,
+      a: 0.45 + Math.random() * 0.25
+    });
+  }
 }
 
 function update() {
-  if (gameState === "gameover") return;
+  if (gameState === "gameover") {
+    player.vy += player.gravity * 0.9;
+    player.y += player.vy;
+    player.rotation += 0.14;
+    shake = Math.max(0, shake - 0.5);
+    flash = Math.max(0, flash - 0.02);
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.a -= 0.018;
+      if (p.a <= 0) particles.splice(i, 1);
+    }
+    return;
+  }
 
   player.vy += player.gravity;
   player.y += player.vy;
@@ -310,34 +354,62 @@ function update() {
   if (player.y >= baseY - player.h) {
     player.y = baseY - player.h;
     player.vy = 0;
+    player.rotation = 0;
+  } else {
+    player.rotation = Math.max(-0.35, Math.min(0.45, player.vy * 0.03));
   }
 
-  spawnTimer--;
+  spawnTimer -= 1;
   if (spawnTimer <= 0) {
     spawnObstacle();
-    spawnTimer = Math.max(48, 92 - speed * 4 + Math.random() * 24);
+    spawnTimer = Math.max(42, 92 - speed * 4 + Math.random() * 24);
   }
 
   for (let i = obstacles.length - 1; i >= 0; i--) {
     const o = obstacles[i];
     o.x -= speed;
 
-    if (player.x < o.x + o.w && player.x + player.w > o.x && player.y < o.y + o.h && player.y + player.h > o.y) {
+    const hitbox = {
+      x: player.x + 12,
+      y: player.y + 10,
+      w: player.w - 24,
+      h: player.h - 18
+    };
+
+    if (
+      hitbox.x < o.x + o.w &&
+      hitbox.x + hitbox.w > o.x &&
+      hitbox.y < o.y + o.h &&
+      hitbox.y + hitbox.h > o.y
+    ) {
       gameOver();
+      break;
     }
 
     if (o.x + o.w < 0) {
       obstacles.splice(i, 1);
-      score++;
+      score += 1;
+      if (score > best) {
+        best = score;
+        localStorage.setItem("leoRunnerBest", String(best));
+      }
       updateScore();
     }
   }
 
-  speed += 0.0025;
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.a -= 0.012;
+    if (p.a <= 0) particles.splice(i, 1);
+  }
+
+  speed += 0.0023;
 }
 
 function updateScore() {
-  scoreEl.textContent = `Score ${score}`;
+  scoreEl.textContent = `Score ${score} · Best ${best}`;
 }
 
 function gameOver() {
@@ -345,26 +417,107 @@ function gameOver() {
   gameState = "gameover";
   stopMusic();
   playCrashSound();
+  player.vy = -8.5;
+  player.rotation = -0.15;
+  shake = 8;
+  flash = 0.35;
+  addImpactParticles();
 
-  gameOverEl.innerHTML = `<div class="panel"><div>Game Over</div><button onclick="restart()">Play Again</button></div>`;
-  gameOverEl.style.display = "flex";
-  requestAnimationFrame(() => gameOverEl.classList.add("show"));
+  setTimeout(() => {
+    if (gameState !== "gameover") return;
+    gameOverEl.innerHTML = `<div class="panel"><div>Game Over</div><button onclick="restart()">Play Again</button></div>`;
+    gameOverEl.style.display = "flex";
+    requestAnimationFrame(() => gameOverEl.classList.add("show"));
+  }, 650);
 }
 
-function render() {
+function drawBackground() {
+  const dx = shake > 0 ? (Math.random() - 0.5) * shake : 0;
+  const dy = shake > 0 ? (Math.random() - 0.5) * shake * 0.35 : 0;
+
+  ctx.save();
+  ctx.translate(dx, dy);
+
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const sky = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  sky.addColorStop(0, "#0a0a0a");
+  sky.addColorStop(1, "#101312");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  ctx.fillStyle = "#181818";
+  ctx.globalAlpha = 0.06;
+  for (let x = 0; x < canvas.width; x += 24) ctx.fillRect(x, 0, 1, canvas.height);
+  for (let y = 0; y < canvas.height; y += 24) ctx.fillRect(0, y, canvas.width, 1);
+  ctx.globalAlpha = 1;
+
+  ctx.fillStyle = "#1a1a1a";
   ctx.fillRect(0, baseY, canvas.width, groundHeight);
+  ctx.fillStyle = "rgba(34,197,94,0.32)";
+  ctx.fillRect(0, baseY, canvas.width, 2);
+}
 
+function drawObstacles() {
   ctx.fillStyle = "#22c55e";
   for (const o of obstacles) {
     ctx.fillRect(o.x, o.y, o.w, o.h);
+    ctx.fillStyle = "rgba(255,255,255,0.08)";
+    ctx.fillRect(o.x, o.y, o.w, 3);
+    ctx.fillStyle = "#22c55e";
+  }
+}
+
+function drawParticles() {
+  for (const p of particles) {
+    ctx.fillStyle = `rgba(255,255,255,${p.a})`;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawPlayer() {
+  ctx.save();
+  ctx.translate(player.x + player.w / 2, player.y + player.h / 2);
+  ctx.rotate(player.rotation);
+
+  if (leoImg && leoImg.complete && leoImg.naturalWidth > 0) {
+    ctx.drawImage(leoImg, -player.w / 2, -player.h / 2, player.w, player.h);
+  } else {
+    ctx.fillStyle = "#f97316";
+    ctx.beginPath();
+    ctx.arc(0, 0, 22, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "white";
+    ctx.font = "700 14px Inter, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("L", 0, 1);
   }
 
-  if (leoImg && leoImg.complete) {
-    ctx.drawImage(leoImg, player.x, player.y, player.w, player.h);
+  ctx.restore();
+}
+
+function drawHint() {
+  if (score > 0 || gameState !== "running") return;
+  ctx.fillStyle = "rgba(255,255,255,0.7)";
+  ctx.font = "16px Inter, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("Tap or press space to jump", canvas.width / 2, 52);
+}
+
+function render() {
+  drawBackground();
+  drawObstacles();
+  drawParticles();
+  drawPlayer();
+  drawHint();
+
+  if (flash > 0) {
+    ctx.fillStyle = `rgba(255,255,255,${flash})`;
+    ctx.fillRect(-40, -40, canvas.width + 80, canvas.height + 80);
   }
+
+  ctx.restore();
 }
 
 function run() {
@@ -372,6 +525,40 @@ function run() {
   render();
   loop = requestAnimationFrame(run);
 }
+
+window.addEventListener("keydown", e => {
+  keyBuffer += e.key.toLowerCase();
+  if (keyBuffer.includes("leo")) revealGame();
+  keyBuffer = keyBuffer.slice(-10);
+
+  if (e.code === "Space" || e.code === "ArrowUp") {
+    e.preventDefault();
+    handleAction();
+  }
+
+  if (e.key.toLowerCase() === "r" && gameState === "gameover") {
+    restart();
+  }
+});
+
+titleEl.addEventListener("click", () => {
+  taps += 1;
+  if (taps === 3) revealGame();
+  setTimeout(() => { taps = 0; }, 500);
+});
+
+window.addEventListener("touchstart", e => {
+  if (!gameStarted) return;
+  e.preventDefault();
+  handleAction();
+}, { passive: false });
+
+window.addEventListener("resize", () => {
+  if (!gameStarted) return;
+  resizeGame();
+});
+
+window.restart = restart;
 </script>
 
 </body>
