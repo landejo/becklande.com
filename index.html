@@ -100,465 +100,404 @@ button{
 </div>
 
 <script>
-let keyBuffer = "";
-let taps = 0;
-let gameStarted = false;
-let canvas, ctx, leoImg, loop;
-let score = 0;
-let best = Number(localStorage.getItem("leoRunnerBest") || 0);
-let gameState = "idle";
-let audioCtx = null;
-let musicTimer = null;
-let musicStep = 0;
+(() => {
+  const titleEl = document.getElementById("title");
+  const scoreEl = document.getElementById("score");
+  const gameOverEl = document.getElementById("gameover");
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
 
-const titleEl = document.getElementById("title");
-const scoreEl = document.getElementById("score");
-const gameOverEl = document.getElementById("gameover");
-const canvasEl = document.getElementById("game");
+  let keyBuffer = "";
+  let taps = 0;
+  let revealed = false;
+  let animationId = null;
+  let audioCtx = null;
+  let musicTimer = null;
+  let musicStep = 0;
 
-const groundHeight = 86;
-const player = {
-  x: 92,
-  y: 0,
-  w: 64,
-  h: 64,
-  vy: 0,
-  gravity: 0.78,
-  jumpPower: 15.5,
-  rotation: 0
-};
-
-let obstacles = [];
-let particles = [];
-let baseY = 0;
-let speed = 7;
-let spawnTimer = 0;
-let shake = 0;
-let flash = 0;
-
-function initAudio() {
-  if (!audioCtx) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
-  if (audioCtx.state === "suspended") {
-    audioCtx.resume();
-  }
-}
-
-function beep(freq, duration, type = "square", volume = 0.035, slideTo = null) {
-  if (!audioCtx) return;
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.type = type;
-  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-  if (slideTo) {
-    osc.frequency.exponentialRampToValueAtTime(slideTo, audioCtx.currentTime + duration);
-  }
-  gain.gain.setValueAtTime(volume, audioCtx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
-  osc.connect(gain);
-  gain.connect(audioCtx.destination);
-  osc.start();
-  osc.stop(audioCtx.currentTime + duration);
-}
-
-function playJumpSound() {
-  beep(420, 0.08, "square", 0.04, 620);
-}
-
-function playCrashSound() {
-  beep(180, 0.18, "sawtooth", 0.06, 70);
-}
-
-function playMusicTick() {
-  if (!audioCtx || gameState !== "running") return;
-
-  const leadA = [330, 392, 440, 523, 440, 392, 330, 392];
-  const leadB = [494, 523, 587, 659, 587, 523, 494, 440];
-  const bass = [110, 110, 147, 147, 165, 147, 110, 98];
-  const harmony = [220, 247, 294, 330, 294, 247, 220, 196];
-
-  const section = Math.floor(musicStep / 16) % 2;
-  const pattern = section === 0 ? leadA : leadB;
-  const i = musicStep % 8;
-
-  const tempoBoost = Math.min(0.012, Math.max(0, (speed - 7) * 0.0009));
-  const leadVol = 0.022 + tempoBoost;
-  const bassVol = 0.02 + tempoBoost * 0.7;
-  const hatVol = 0.008 + tempoBoost * 0.4;
-
-  beep(pattern[i], 0.11, "square", leadVol);
-
-  if (musicStep % 2 === 0) {
-    beep(bass[i], 0.18, "triangle", bassVol);
-  }
-
-  if (musicStep % 4 === 1 || musicStep % 4 === 3) {
-    beep(harmony[i], 0.06, "square", 0.010 + tempoBoost * 0.3);
-  }
-
-  // hi-hat style click
-  if (musicStep % 2 === 1) {
-    beep(1200, 0.02, "square", hatVol, 900);
-  }
-
-  // accent pulse every 8 beats
-  if (musicStep % 8 === 0) {
-    beep(82, 0.22, "sawtooth", 0.012 + tempoBoost * 0.3, 70);
-  }
-
-  musicStep += 1;
-}
-
-function startMusic() {
-  stopMusic();
-  musicStep = 0;
-  musicTimer = setInterval(() => {
-    playMusicTick();
-  }, 155);
-}
-
-function stopMusic() {
-  if (musicTimer) {
-    clearInterval(musicTimer);
-    musicTimer = null;
-  }
-}
-
-function revealGame() {
-  if (gameStarted) return;
-  gameStarted = true;
-  initAudio();
-
-  canvas = canvasEl;
-  ctx = canvas.getContext("2d");
-  canvas.style.display = "block";
-  scoreEl.style.display = "block";
-  titleEl.parentElement.style.opacity = "0";
-
-  leoImg = new Image();
-  const spriteCandidates = ["leo_sprite_v2.png", "leo_sprite_pro.png", "leo.png"];
-  let idx = 0;
-
-  leoImg.onload = () => {
-    initGame();
-    startMusic();
-    run();
+  const state = {
+    running: false,
+    over: false,
+    width: 0,
+    height: 0,
+    groundY: 0,
+    speed: 7,
+    score: 0,
+    best: Number(localStorage.getItem("leoRunnerBest") || 0),
+    spawnTimer: 70,
+    shake: 0,
+    flash: 0,
+    player: {
+      x: 92,
+      y: 0,
+      w: 64,
+      h: 64,
+      vy: 0,
+      gravity: 0.78,
+      jump: 15.2,
+      rotation: 0
+    },
+    obstacles: [],
+    particles: []
   };
-  leoImg.onerror = () => {
-    idx += 1;
-    if (idx < spriteCandidates.length) {
-      leoImg.src = spriteCandidates[idx];
-    } else {
-      initGame();
-      startMusic();
-      run();
-    }
-  };
-  leoImg.src = spriteCandidates[idx];
-}
 
-function resizeGame() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-  baseY = canvas.height - groundHeight;
-  if (player.y === 0 || player.y > baseY - player.h) {
-    player.y = baseY - player.h;
-  }
-}
+  const leoImg = new Image();
+  let spriteReady = false;
 
-function initGame() {
-  resizeGame();
-  restart();
-}
-
-function restart() {
-  score = 0;
-  speed = 7;
-  spawnTimer = 55;
-  obstacles = [];
-  particles = [];
-  shake = 0;
-  flash = 0;
-  player.vy = 0;
-  player.rotation = 0;
-  player.y = baseY - player.h;
-  gameState = "running";
-  gameOverEl.classList.remove("show");
-  gameOverEl.style.display = "none";
-  updateScore();
-  startMusic();
-}
-
-function handleAction() {
-  initAudio();
-  if (!gameStarted) return;
-  if (gameState === "gameover") {
-    restart();
-    return;
-  }
-  jump();
-}
-
-function jump() {
-  const onGround = player.y >= baseY - player.h - 0.5;
-  if (!onGround) return;
-  player.vy = -player.jumpPower;
-  playJumpSound();
-}
-
-function spawnObstacle() {
-  const h = 28 + Math.random() * 22;
-  const w = 18 + Math.random() * 16;
-  obstacles.push({
-    x: canvas.width + 20,
-    y: baseY - h,
-    w,
-    h
-  });
-}
-
-function addImpactParticles() {
-  for (let i = 0; i < 22; i++) {
-    particles.push({
-      x: player.x + player.w * 0.5,
-      y: player.y + player.h * 0.6,
-      r: 2 + Math.random() * 4,
-      vx: -4 + Math.random() * 8,
-      vy: -4 + Math.random() * 4,
-      a: 0.45 + Math.random() * 0.25
-    });
-  }
-}
-
-function update() {
-  if (gameState === "gameover") {
-    player.vy += player.gravity * 0.9;
-    player.y += player.vy;
-    player.rotation += 0.14;
-    shake = Math.max(0, shake - 0.5);
-    flash = Math.max(0, flash - 0.02);
-    for (let i = particles.length - 1; i >= 0; i--) {
-      const p = particles[i];
-      p.x += p.vx;
-      p.y += p.vy;
-      p.a -= 0.018;
-      if (p.a <= 0) particles.splice(i, 1);
-    }
-    return;
-  }
-
-  player.vy += player.gravity;
-  player.y += player.vy;
-
-  if (player.y >= baseY - player.h) {
-    player.y = baseY - player.h;
-    player.vy = 0;
-    player.rotation = 0;
-  } else {
-    player.rotation = Math.max(-0.35, Math.min(0.45, player.vy * 0.03));
-  }
-
-  spawnTimer -= 1;
-  if (spawnTimer <= 0) {
-    spawnObstacle();
-    spawnTimer = Math.max(42, 92 - speed * 4 + Math.random() * 24);
-  }
-
-  for (let i = obstacles.length - 1; i >= 0; i--) {
-    const o = obstacles[i];
-    o.x -= speed;
-
-    const hitbox = {
-      x: player.x + 12,
-      y: player.y + 10,
-      w: player.w - 24,
-      h: player.h - 18
+  function loadSprite() {
+    const candidates = ["leo_sprite_v2.png", "leo_sprite_pro.png", "leo.png"];
+    let i = 0;
+    leoImg.onload = () => { spriteReady = true; };
+    leoImg.onerror = () => {
+      i += 1;
+      if (i < candidates.length) leoImg.src = candidates[i];
     };
+    leoImg.src = candidates[i];
+  }
+  loadSprite();
 
-    if (
-      hitbox.x < o.x + o.w &&
-      hitbox.x + hitbox.w > o.x &&
-      hitbox.y < o.y + o.h &&
-      hitbox.y + hitbox.h > o.y
-    ) {
-      gameOver();
-      break;
+  function ensureAudio() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+  }
+
+  function beep(freq, duration, type = "square", volume = 0.02, slideTo = null) {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, audioCtx.currentTime + duration);
+    gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration);
+  }
+
+  function playJumpSound() { beep(420, 0.08, "square", 0.035, 620); }
+  function playCrashSound() { beep(180, 0.20, "sawtooth", 0.06, 70); }
+
+  function playMusicTick() {
+    if (!audioCtx || !state.running || state.over) return;
+    const leadA = [330, 392, 440, 523, 440, 392, 330, 392];
+    const leadB = [494, 523, 587, 659, 587, 523, 494, 440];
+    const bass = [110, 110, 147, 147, 165, 147, 110, 98];
+    const harmony = [220, 247, 294, 330, 294, 247, 220, 196];
+    const section = Math.floor(musicStep / 16) % 2;
+    const pattern = section === 0 ? leadA : leadB;
+    const i = musicStep % 8;
+    const boost = Math.min(0.012, Math.max(0, (state.speed - 7) * 0.0009));
+
+    beep(pattern[i], 0.11, "square", 0.022 + boost);
+    if (musicStep % 2 === 0) beep(bass[i], 0.18, "triangle", 0.018 + boost * 0.7);
+    if (musicStep % 4 === 1 || musicStep % 4 === 3) beep(harmony[i], 0.06, "square", 0.01 + boost * 0.3);
+    if (musicStep % 2 === 1) beep(1200, 0.02, "square", 0.007 + boost * 0.4, 900);
+    if (musicStep % 8 === 0) beep(82, 0.22, "sawtooth", 0.01 + boost * 0.2, 70);
+    musicStep += 1;
+  }
+
+  function startMusic() {
+    stopMusic();
+    musicStep = 0;
+    musicTimer = setInterval(playMusicTick, 155);
+  }
+
+  function stopMusic() {
+    if (musicTimer) {
+      clearInterval(musicTimer);
+      musicTimer = null;
     }
+  }
 
-    if (o.x + o.w < 0) {
-      obstacles.splice(i, 1);
-      score += 1;
-      if (score > best) {
-        best = score;
-        localStorage.setItem("leoRunnerBest", String(best));
+  function resize() {
+    state.width = window.innerWidth;
+    state.height = window.innerHeight;
+    canvas.width = state.width;
+    canvas.height = state.height;
+    state.groundY = state.height - 86;
+    if (!state.running || state.player.y === 0 || state.player.y > state.groundY - state.player.h) {
+      state.player.y = state.groundY - state.player.h;
+    }
+  }
+
+  function updateScore() {
+    scoreEl.textContent = `Score ${state.score} · Best ${state.best}`;
+  }
+
+  function revealGame() {
+    if (revealed) return;
+    revealed = true;
+    ensureAudio();
+    resize();
+    canvas.style.display = "block";
+    scoreEl.style.display = "block";
+    titleEl.parentElement.style.opacity = "0";
+    restart();
+    if (!animationId) loop();
+  }
+
+  function restart() {
+    state.running = true;
+    state.over = false;
+    state.speed = 7;
+    state.score = 0;
+    state.spawnTimer = 70;
+    state.shake = 0;
+    state.flash = 0;
+    state.obstacles = [];
+    state.particles = [];
+    state.player.vy = 0;
+    state.player.rotation = 0;
+    state.player.y = state.groundY - state.player.h;
+    gameOverEl.classList.remove("show");
+    gameOverEl.style.display = "none";
+    updateScore();
+    startMusic();
+  }
+
+  function jump() {
+    const p = state.player;
+    const onGround = p.y >= state.groundY - p.h - 0.5;
+    if (!onGround || state.over) return;
+    p.vy = -p.jump;
+    playJumpSound();
+  }
+
+  function handleAction() {
+    ensureAudio();
+    if (!revealed) return;
+    if (state.over) {
+      restart();
+      return;
+    }
+    jump();
+  }
+
+  function spawnObstacle() {
+    const h = 28 + Math.random() * 22;
+    const w = 18 + Math.random() * 16;
+    state.obstacles.push({ x: state.width + 20, y: state.groundY - h, w, h });
+  }
+
+  function addImpactParticles() {
+    for (let i = 0; i < 22; i++) {
+      state.particles.push({
+        x: state.player.x + state.player.w * 0.5,
+        y: state.player.y + state.player.h * 0.6,
+        r: 2 + Math.random() * 4,
+        vx: -4 + Math.random() * 8,
+        vy: -4 + Math.random() * 4,
+        a: 0.45 + Math.random() * 0.25
+      });
+    }
+  }
+
+  function gameOver() {
+    if (state.over) return;
+    state.over = true;
+    state.running = false;
+    state.player.vy = -8.5;
+    state.player.rotation = -0.15;
+    state.shake = 8;
+    state.flash = 0.35;
+    addImpactParticles();
+    stopMusic();
+    playCrashSound();
+    setTimeout(() => {
+      if (!state.over) return;
+      gameOverEl.innerHTML = '<div class="panel"><div>Game Over</div><button onclick="restartGameFromButton()">Play Again</button></div>';
+      gameOverEl.style.display = "flex";
+      requestAnimationFrame(() => gameOverEl.classList.add("show"));
+    }, 650);
+  }
+
+  window.restartGameFromButton = restart;
+
+  function update() {
+    const p = state.player;
+
+    if (state.over) {
+      p.vy += p.gravity * 0.9;
+      p.y += p.vy;
+      p.rotation += 0.14;
+      state.shake = Math.max(0, state.shake - 0.5);
+      state.flash = Math.max(0, state.flash - 0.02);
+      for (let i = state.particles.length - 1; i >= 0; i--) {
+        const part = state.particles[i];
+        part.x += part.vx;
+        part.y += part.vy;
+        part.a -= 0.018;
+        if (part.a <= 0) state.particles.splice(i, 1);
       }
-      updateScore();
+      return;
+    }
+
+    p.vy += p.gravity;
+    p.y += p.vy;
+    if (p.y >= state.groundY - p.h) {
+      p.y = state.groundY - p.h;
+      p.vy = 0;
+      p.rotation = 0;
+    } else {
+      p.rotation = Math.max(-0.35, Math.min(0.45, p.vy * 0.03));
+    }
+
+    state.spawnTimer -= 1;
+    if (state.spawnTimer <= 0) {
+      spawnObstacle();
+      state.spawnTimer = Math.max(42, 92 - state.speed * 4 + Math.random() * 24);
+    }
+
+    for (let i = state.obstacles.length - 1; i >= 0; i--) {
+      const o = state.obstacles[i];
+      o.x -= state.speed;
+      const hitbox = { x: p.x + 12, y: p.y + 10, w: p.w - 24, h: p.h - 18 };
+      if (hitbox.x < o.x + o.w && hitbox.x + hitbox.w > o.x && hitbox.y < o.y + o.h && hitbox.y + hitbox.h > o.y) {
+        gameOver();
+        break;
+      }
+      if (o.x + o.w < 0) {
+        state.obstacles.splice(i, 1);
+        state.score += 1;
+        if (state.score > state.best) {
+          state.best = state.score;
+          localStorage.setItem("leoRunnerBest", String(state.best));
+        }
+        updateScore();
+      }
+    }
+
+    for (let i = state.particles.length - 1; i >= 0; i--) {
+      const part = state.particles[i];
+      part.x += part.vx;
+      part.y += part.vy;
+      part.a -= 0.012;
+      if (part.a <= 0) state.particles.splice(i, 1);
+    }
+
+    state.speed += 0.0023;
+  }
+
+  function drawBackground() {
+    const dx = state.shake > 0 ? (Math.random() - 0.5) * state.shake : 0;
+    const dy = state.shake > 0 ? (Math.random() - 0.5) * state.shake * 0.35 : 0;
+    ctx.save();
+    ctx.translate(dx, dy);
+
+    const sky = ctx.createLinearGradient(0, 0, 0, state.height);
+    sky.addColorStop(0, "#0a0a0a");
+    sky.addColorStop(1, "#101312");
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, state.width, state.height);
+
+    ctx.fillStyle = "rgba(255,255,255,0.06)";
+    for (let x = 0; x < state.width; x += 24) ctx.fillRect(x, 0, 1, state.height);
+    for (let y = 0; y < state.height; y += 24) ctx.fillRect(0, y, state.width, 1);
+
+    ctx.fillStyle = "#1a1a1a";
+    ctx.fillRect(0, state.groundY, state.width, 86);
+    ctx.fillStyle = "rgba(34,197,94,0.32)";
+    ctx.fillRect(0, state.groundY, state.width, 2);
+  }
+
+  function drawObstacles() {
+    ctx.fillStyle = "#22c55e";
+    for (const o of state.obstacles) {
+      ctx.fillRect(o.x, o.y, o.w, o.h);
+      ctx.fillStyle = "rgba(255,255,255,0.08)";
+      ctx.fillRect(o.x, o.y, o.w, 3);
+      ctx.fillStyle = "#22c55e";
     }
   }
 
-  for (let i = particles.length - 1; i >= 0; i--) {
-    const p = particles[i];
-    p.x += p.vx;
-    p.y += p.vy;
-    p.a -= 0.012;
-    if (p.a <= 0) particles.splice(i, 1);
+  function drawParticles() {
+    for (const part of state.particles) {
+      ctx.fillStyle = `rgba(255,255,255,${part.a})`;
+      ctx.beginPath();
+      ctx.arc(part.x, part.y, part.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
-  speed += 0.0023;
-}
-
-function updateScore() {
-  scoreEl.textContent = `Score ${score} · Best ${best}`;
-}
-
-function gameOver() {
-  if (gameState === "gameover") return;
-  gameState = "gameover";
-  stopMusic();
-  playCrashSound();
-  player.vy = -8.5;
-  player.rotation = -0.15;
-  shake = 8;
-  flash = 0.35;
-  addImpactParticles();
-
-  setTimeout(() => {
-    if (gameState !== "gameover") return;
-    gameOverEl.innerHTML = `<div class="panel"><div>Game Over</div><button onclick="restart()">Play Again</button></div>`;
-    gameOverEl.style.display = "flex";
-    requestAnimationFrame(() => gameOverEl.classList.add("show"));
-  }, 650);
-}
-
-function drawBackground() {
-  const dx = shake > 0 ? (Math.random() - 0.5) * shake : 0;
-  const dy = shake > 0 ? (Math.random() - 0.5) * shake * 0.35 : 0;
-
-  ctx.save();
-  ctx.translate(dx, dy);
-
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  const sky = ctx.createLinearGradient(0, 0, 0, canvas.height);
-  sky.addColorStop(0, "#0a0a0a");
-  sky.addColorStop(1, "#101312");
-  ctx.fillStyle = sky;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  ctx.globalAlpha = 0.06;
-  for (let x = 0; x < canvas.width; x += 24) ctx.fillRect(x, 0, 1, canvas.height);
-  for (let y = 0; y < canvas.height; y += 24) ctx.fillRect(0, y, canvas.width, 1);
-  ctx.globalAlpha = 1;
-
-  ctx.fillStyle = "#1a1a1a";
-  ctx.fillRect(0, baseY, canvas.width, groundHeight);
-  ctx.fillStyle = "rgba(34,197,94,0.32)";
-  ctx.fillRect(0, baseY, canvas.width, 2);
-}
-
-function drawObstacles() {
-  ctx.fillStyle = "#22c55e";
-  for (const o of obstacles) {
-    ctx.fillRect(o.x, o.y, o.w, o.h);
-    ctx.fillStyle = "rgba(255,255,255,0.08)";
-    ctx.fillRect(o.x, o.y, o.w, 3);
-    ctx.fillStyle = "#22c55e";
+  function drawPlayer() {
+    const p = state.player;
+    ctx.save();
+    ctx.translate(p.x + p.w / 2, p.y + p.h / 2);
+    ctx.rotate(p.rotation);
+    if (spriteReady && leoImg.complete && leoImg.naturalWidth > 0) {
+      ctx.drawImage(leoImg, -p.w / 2, -p.h / 2, p.w, p.h);
+    } else {
+      ctx.fillStyle = "#f97316";
+      ctx.beginPath();
+      ctx.arc(0, 0, 22, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "white";
+      ctx.font = "700 14px Inter, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("L", 0, 1);
+    }
+    ctx.restore();
   }
-}
 
-function drawParticles() {
-  for (const p of particles) {
-    ctx.fillStyle = `rgba(255,255,255,${p.a})`;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-    ctx.fill();
-  }
-}
-
-function drawPlayer() {
-  ctx.save();
-  ctx.translate(player.x + player.w / 2, player.y + player.h / 2);
-  ctx.rotate(player.rotation);
-
-  if (leoImg && leoImg.complete && leoImg.naturalWidth > 0) {
-    ctx.drawImage(leoImg, -player.w / 2, -player.h / 2, player.w, player.h);
-  } else {
-    ctx.fillStyle = "#f97316";
-    ctx.beginPath();
-    ctx.arc(0, 0, 22, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "white";
-    ctx.font = "700 14px Inter, sans-serif";
+  function drawHint() {
+    if (state.score > 0 || state.over) return;
+    ctx.fillStyle = "rgba(255,255,255,0.7)";
+    ctx.font = "16px Inter, sans-serif";
     ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("L", 0, 1);
+    ctx.fillText("Tap or press space to jump", state.width / 2, 52);
   }
 
-  ctx.restore();
-}
-
-function drawHint() {
-  if (score > 0 || gameState !== "running") return;
-  ctx.fillStyle = "rgba(255,255,255,0.7)";
-  ctx.font = "16px Inter, sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText("Tap or press space to jump", canvas.width / 2, 52);
-}
-
-function render() {
-  drawBackground();
-  drawObstacles();
-  drawParticles();
-  drawPlayer();
-  drawHint();
-
-  if (flash > 0) {
-    ctx.fillStyle = `rgba(255,255,255,${flash})`;
-    ctx.fillRect(-40, -40, canvas.width + 80, canvas.height + 80);
+  function render() {
+    ctx.clearRect(0, 0, state.width, state.height);
+    drawBackground();
+    drawObstacles();
+    drawParticles();
+    drawPlayer();
+    drawHint();
+    if (state.flash > 0) {
+      ctx.fillStyle = `rgba(255,255,255,${state.flash})`;
+      ctx.fillRect(-40, -40, state.width + 80, state.height + 80);
+    }
+    ctx.restore();
   }
 
-  ctx.restore();
-}
+  function loop() {
+    update();
+    render();
+    animationId = requestAnimationFrame(loop);
+  }
 
-function run() {
-  update();
-  render();
-  loop = requestAnimationFrame(run);
-}
+  window.addEventListener("keydown", (e) => {
+    keyBuffer += e.key.toLowerCase();
+    if (keyBuffer.includes("leo")) revealGame();
+    keyBuffer = keyBuffer.slice(-10);
+    if (e.code === "Space" || e.code === "ArrowUp") {
+      e.preventDefault();
+      handleAction();
+    }
+    if (e.key.toLowerCase() === "r" && state.over) restart();
+  });
 
-window.addEventListener("keydown", e => {
-  keyBuffer += e.key.toLowerCase();
-  if (keyBuffer.includes("leo")) revealGame();
-  keyBuffer = keyBuffer.slice(-10);
+  titleEl.addEventListener("click", () => {
+    taps += 1;
+    if (taps === 3) revealGame();
+    setTimeout(() => { taps = 0; }, 500);
+  });
 
-  if (e.code === "Space" || e.code === "ArrowUp") {
+  window.addEventListener("touchstart", (e) => {
+    if (!revealed) return;
     e.preventDefault();
     handleAction();
-  }
+  }, { passive: false });
 
-  if (e.key.toLowerCase() === "r" && gameState === "gameover") {
-    restart();
-  }
-});
-
-titleEl.addEventListener("click", () => {
-  taps += 1;
-  if (taps === 3) revealGame();
-  setTimeout(() => { taps = 0; }, 500);
-});
-
-window.addEventListener("touchstart", e => {
-  if (!gameStarted) return;
-  e.preventDefault();
-  handleAction();
-}, { passive: false });
-
-window.addEventListener("resize", () => {
-  if (!gameStarted) return;
-  resizeGame();
-});
-
-window.restart = restart;
+  window.addEventListener("resize", () => {
+    if (!revealed) return;
+    resize();
+  });
+})();
 </script>
 
 </body>
