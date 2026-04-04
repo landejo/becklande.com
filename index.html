@@ -106,6 +106,9 @@ let particles = [];
 let spawnTimer = 0;
 let speed = 7;
 let baseY = 0;
+let gameOverTimer = 0;
+let crashFlash = 0;
+let leoRotation = 0;
 
 window.addEventListener("keydown", e => {
   keyBuffer += e.key.toLowerCase();
@@ -149,15 +152,29 @@ function revealGame() {
   titleEl.parentElement.style.opacity = "0";
 
   leoImg = new Image();
-  leoImg.src = "leo.png";
+  const spriteCandidates = ["leo_sprite_v2.png", "leo_sprite_pro.png", "leo.png"];
+  let spriteIndex = 0;
+
+  function tryNextSprite() {
+    if (spriteIndex >= spriteCandidates.length) {
+      console.warn("Leo sprite failed to load. Checked:", spriteCandidates);
+      initGame();
+      run();
+      return;
+    }
+    leoImg.src = spriteCandidates[spriteIndex++];
+  }
+
   leoImg.onload = () => {
     initGame();
     run();
   };
+
   leoImg.onerror = () => {
-    initGame();
-    run();
+    tryNextSprite();
   };
+
+  tryNextSprite();
 }
 
 function resizeGame() {
@@ -183,6 +200,9 @@ function restart() {
   player.vy = 0;
   player.y = baseY - player.h;
   gameState = "running";
+  gameOverTimer = 0;
+  crashFlash = 0;
+  leoRotation = 0;
   gameOverEl.style.display = "none";
   updateScore();
 }
@@ -225,6 +245,27 @@ function addDust() {
 }
 
 function update() {
+  if (gameState === "gameover") {
+    gameOverTimer += 1;
+    player.vy += player.gravity * 0.9;
+    player.y += player.vy;
+    leoRotation += 0.09;
+    crashFlash = Math.max(0, crashFlash - 0.03);
+    if (player.y > canvas.height + 120) {
+      player.y = canvas.height + 120;
+      player.vy = 0;
+    }
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.a -= 0.02;
+      if (p.a <= 0) particles.splice(i, 1);
+    }
+    return;
+  }
+
   if (gameState !== "running") return;
 
   player.vy += player.gravity;
@@ -289,9 +330,28 @@ function updateScore() {
 }
 
 function gameOver() {
+  if (gameState === "gameover") return;
   gameState = "gameover";
-  gameOverEl.innerHTML = `<div>Game Over</div><button onclick="restart()">Play Again</button>`;
-  gameOverEl.style.display = "flex";
+  player.vy = -8;
+  crashFlash = 0.35;
+  leoRotation = 0;
+
+  for (let i = 0; i < 16; i++) {
+    particles.push({
+      x: player.x + player.w * 0.5,
+      y: player.y + player.h * 0.55,
+      r: 2 + Math.random() * 4,
+      vx: -4 + Math.random() * 8,
+      vy: -3.5 + Math.random() * 3,
+      a: 0.45 + Math.random() * 0.35
+    });
+  }
+
+  setTimeout(() => {
+    if (gameState !== "gameover") return;
+    gameOverEl.innerHTML = `<div>Game Over</div><button onclick="restart()">Play Again</button>`;
+    gameOverEl.style.display = "flex";
+  }, 550);
 }
 
 function drawBackground() {
@@ -321,20 +381,34 @@ function drawBackground() {
 }
 
 function drawPlayer() {
-  const squash = player.y >= baseY - player.h - 0.5 ? Math.min(1.04, 1 + speed * 0.002) : 0.98;
+  const squash = player.y >= baseY - player.h - 0.5 && gameState === "running"
+    ? Math.min(1.04, 1 + speed * 0.002)
+    : 1;
   const drawW = player.w * squash;
   const drawH = player.h / squash;
   const drawX = player.x - (drawW - player.w) / 2;
   const drawY = player.y + (player.h - drawH);
 
-  if (leoImg && leoImg.complete && leoImg.naturalWidth > 0) {
-    ctx.drawImage(leoImg, drawX, drawY, drawW, drawH);
-  } else {
-    ctx.fillStyle = "#d4a373";
-    ctx.beginPath();
-    ctx.arc(player.x + player.w / 2, player.y + player.h / 2, 28, 0, Math.PI * 2);
-    ctx.fill();
+  ctx.save();
+  ctx.translate(drawX + drawW / 2, drawY + drawH / 2);
+  if (gameState === "gameover") {
+    ctx.rotate(leoRotation);
   }
+
+  if (leoImg && leoImg.complete && leoImg.naturalWidth > 0) {
+    ctx.drawImage(leoImg, -drawW / 2, -drawH / 2, drawW, drawH);
+  } else {
+    ctx.fillStyle = "#f97316";
+    ctx.font = "700 14px Inter, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.beginPath();
+    ctx.arc(0, 0, 22, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "white";
+    ctx.fillText("L", 0, 1);
+  }
+  ctx.restore();
 }
 
 function drawObstacles() {
@@ -370,6 +444,11 @@ function render() {
   drawObstacles();
   drawPlayer();
   drawHint();
+
+  if (crashFlash > 0) {
+    ctx.fillStyle = `rgba(255,255,255,${crashFlash})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
 }
 
 function run() {
