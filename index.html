@@ -101,8 +101,13 @@ function startGame(){
   canvas.width=window.innerWidth;
   canvas.height=window.innerHeight;
 
-  leoImg=new Image();
-  leoImg.src="leo.png"; // ADD THIS FILE TO YOUR REPO
+leoImg = new Image();
+leoImg.src = "leo_sprite_pro.png";
+
+leoImg.onload = () => {
+  resetGame();
+  update();
+};
 
   resetGame();
   update();
