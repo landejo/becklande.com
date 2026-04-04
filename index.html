@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Beck Lande</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --text: #f5f5f5;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+    }
+
+    body {
+      font-family: Inter, system-ui, sans-serif;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      /* VERY subtle Minecraft-style grid */
+      background:
+        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px),
+        radial-gradient(circle at 30% 30%, rgba(34,197,94,0.05), transparent 40%),
+        var(--bg);
+
+      background-size: 24px 24px, 24px 24px, auto;
+    }
+
+    main {
+      text-align: center;
+      animation: fadeIn 1s ease forwards;
+      opacity: 0;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(3rem, 8vw, 6rem);
+      font-weight: 900;
+      letter-spacing: -0.04em;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  
+
+    h1 {
+      transition: text-shadow 0.3s ease, transform 0.25s ease;
+    }
+
+    h1:hover {
+      text-shadow: 0 0 12px rgba(34,197,94,0.25),
+                   0 0 24px rgba(34,197,94,0.15);
+      transform: translateY(-1px);
+    }
+
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Beck Lande</h1>
+  </main>
+</body>
+</html>
