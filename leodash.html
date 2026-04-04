@@ -368,14 +368,19 @@
           { x: 4300, w: 130, h: 36 }
         ];
         const stars = [
-          { x: 760, y: -120 },
-          { x: 1680, y: -110 },
-          { x: 3240, y: -130 },
-          { x: 5020, y: -120 }
+          { x: 760, y: -150 },
+          { x: 1680, y: -150 },
+          { x: 3240, y: -160 },
+          { x: 5020, y: -150 }
         ];
 
         game.obstacles = [];
         spikes.forEach(x => game.obstacles.push({ type: 'spike', x, w: 34, h: 24 }));
+
+        game.obstacles = game.obstacles.filter(obs => {
+          if (obs.type !== 'spike') return true;
+          return ![920, 1820, 3480, 5480].includes(obs.x);
+        });
         blocks.forEach(b => game.obstacles.push({ type: 'block', x: b.x, w: b.w, h: b.h }));
         game.stars = stars.map(s => ({ x: s.x, y: s.y, taken: false }));
 
@@ -598,6 +603,9 @@
           const box = { x: sx - 12, y: sy - 12, w: 24, h: 24 };
           if (intersects(bounds, box)) {
             star.taken = true;
+            if (game.player.vy > -1.5) {
+              game.player.vy = Math.min(game.player.vy, -2.4);
+            }
             starSound();
             for (let i = 0; i < 8; i++) {
               game.particles.push({
