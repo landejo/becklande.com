@@ -6,10 +6,10 @@
   <title>Leo Blaster</title>
   <style>
     :root {
-      --bg: #081523;
-      --panel: rgba(8, 18, 32, 0.78);
+      --bg: #071423;
+      --panel: rgba(7, 18, 32, 0.82);
       --text: #eef8ff;
-      --muted: rgba(238, 248, 255, 0.68);
+      --muted: rgba(238, 248, 255, 0.72);
       --cyan: #37e8ff;
       --green: #4ade80;
       --yellow: #facc15;
@@ -18,7 +18,6 @@
     }
 
     * { box-sizing: border-box; }
-
     html, body {
       margin: 0;
       height: 100%;
@@ -73,7 +72,7 @@
     }
 
     .weapon {
-      min-width: 92px;
+      min-width: 96px;
       border-radius: 12px;
       padding: 8px 10px;
       border: 1px solid rgba(255,255,255,0.1);
@@ -92,8 +91,8 @@
     }
 
     .weapon.active {
-      background: linear-gradient(135deg, rgba(55,232,255,0.22), rgba(251,95,215,0.16));
-      border-color: rgba(55,232,255,0.65);
+      background: linear-gradient(135deg, rgba(55,232,255,0.24), rgba(251,95,215,0.16));
+      border-color: rgba(55,232,255,0.7);
       color: var(--text);
       box-shadow: 0 0 24px rgba(55,232,255,0.16);
     }
@@ -102,13 +101,16 @@
       position: fixed;
       left: 50%;
       top: 50%;
-      width: 34px;
-      height: 34px;
-      margin-left: -17px;
-      margin-top: -17px;
+      width: 38px;
+      height: 38px;
+      margin-left: -19px;
+      margin-top: -19px;
       pointer-events: none;
       z-index: 9;
-      opacity: 0.82;
+      opacity: 0.86;
+      border: 2px solid rgba(255,255,255,0.65);
+      border-radius: 50%;
+      box-shadow: 0 0 18px rgba(55,232,255,0.45);
     }
 
     .crosshair:before,
@@ -116,22 +118,10 @@
       content: "";
       position: absolute;
       background: rgba(255,255,255,0.9);
-      box-shadow: 0 0 12px rgba(55,232,255,0.5);
     }
 
-    .crosshair:before {
-      left: 16px;
-      top: 0;
-      width: 2px;
-      height: 34px;
-    }
-
-    .crosshair:after {
-      left: 0;
-      top: 16px;
-      width: 34px;
-      height: 2px;
-    }
+    .crosshair:before { left: 17px; top: -8px; width: 2px; height: 52px; }
+    .crosshair:after { top: 17px; left: -8px; height: 2px; width: 52px; }
 
     .center-ui {
       position: fixed;
@@ -141,15 +131,15 @@
       align-items: center;
       justify-content: center;
       padding: 20px;
-      background: radial-gradient(circle at center, rgba(55,232,255,0.08), rgba(0,0,0,0.18));
+      background: radial-gradient(circle at center, rgba(55,232,255,0.08), rgba(0,0,0,0.2));
     }
 
     .card {
-      width: min(720px, 100%);
+      width: min(740px, 100%);
       text-align: center;
       padding: 28px 24px;
       border-radius: 28px;
-      background: linear-gradient(180deg, rgba(9, 23, 40, 0.94), rgba(7, 14, 27, 0.94));
+      background: linear-gradient(180deg, rgba(9, 23, 40, 0.95), rgba(7, 14, 27, 0.95));
       border: 1px solid rgba(255,255,255,0.14);
       box-shadow: 0 26px 70px rgba(0,0,0,0.42);
       backdrop-filter: blur(10px);
@@ -168,7 +158,7 @@
 
     .sub {
       margin: 0 auto 20px;
-      max-width: 54ch;
+      max-width: 58ch;
       color: var(--muted);
       line-height: 1.5;
     }
@@ -188,27 +178,11 @@
 
     .hidden { display: none !important; }
 
-    .mobile-tip {
-      display: none;
-    }
-
     @media (max-width: 760px) {
-      .hud {
-        flex-direction: column;
-        align-items: stretch;
-      }
-      .weapon-panel {
-        width: 100%;
-        justify-content: space-between;
-      }
-      .weapon {
-        flex: 1;
-        min-width: 0;
-        padding: 8px 6px;
-        font-size: 11px;
-      }
+      .hud { flex-direction: column; align-items: stretch; }
+      .weapon-panel { width: 100%; justify-content: space-between; }
+      .weapon { flex: 1; min-width: 0; padding: 8px 6px; font-size: 11px; }
       .weapon strong { font-size: 12px; }
-      .mobile-tip { display: inline; }
     }
   </style>
 </head>
@@ -216,11 +190,11 @@
   <canvas id="game"></canvas>
 
   <div class="hud">
-    <div class="pill" id="stats">Score 0 · Health 5 · Wave 1</div>
+    <div class="pill" id="stats">Score 0 · Shield 10 · Wave 1</div>
     <div class="weapon-panel">
-      <button class="weapon active" data-weapon="ball"><strong>1 Ball</strong>Launcher</button>
-      <button class="weapon" data-weapon="dart"><strong>2 Dart</strong>Pistol</button>
-      <button class="weapon" data-weapon="saber"><strong>3 Saber</strong>Close</button>
+      <button class="weapon active" data-weapon="ball"><strong>1 Ball</strong>Easy</button>
+      <button class="weapon" data-weapon="dart"><strong>2 Dart</strong>Power</button>
+      <button class="weapon" data-weapon="saber"><strong>3 Saber</strong>Panic</button>
     </div>
   </div>
 
@@ -230,7 +204,7 @@
     <div class="card">
       <h1>Leo Blaster</h1>
       <p class="sub">
-        A cute arcade blaster. Zap the bouncing blobs before they get too close. Switch weapons with 1, 2, 3. <span class="mobile-tip">Tap weapon buttons on mobile.</span>
+        Simple rule: protect Leo in the middle. Blobs come toward the center. Click or tap them before they reach Leo. Use 1, 2, 3 to switch toys.
       </p>
       <button class="btn" id="startBtn">Start Game</button>
     </div>
@@ -251,7 +225,6 @@
   const statsEl = document.getElementById('stats');
   const startScreen = document.getElementById('startScreen');
   const gameOverScreen = document.getElementById('gameOverScreen');
-  const resultTitle = document.getElementById('resultTitle');
   const resultText = document.getElementById('resultText');
   const startBtn = document.getElementById('startBtn');
   const restartBtn = document.getElementById('restartBtn');
@@ -259,9 +232,11 @@
 
   let w = 0;
   let h = 0;
+  let cx = 0;
+  let cy = 0;
   let running = false;
   let score = 0;
-  let health = 5;
+  let shield = 10;
   let wave = 1;
   let frame = 0;
   let spawnTimer = 0;
@@ -276,39 +251,10 @@
   const floatingTexts = [];
 
   const weapons = {
-    ball: {
-      label: 'Ball Launcher',
-      damage: 1,
-      cooldown: 10,
-      radius: 54,
-      color: '#4ade80',
-      sound: 520,
-      ammo: Infinity,
-      regen: 0
-    },
-    dart: {
-      label: 'Foam Dart Pistol',
-      damage: 2,
-      cooldown: 22,
-      radius: 40,
-      color: '#37e8ff',
-      sound: 720,
-      ammo: 6,
-      maxAmmo: 6,
-      regen: 0.012
-    },
-    saber: {
-      label: 'Pool Noodle Saber',
-      damage: 3,
-      cooldown: 28,
-      radius: 115,
-      color: '#facc15',
-      sound: 260,
-      ammo: Infinity,
-      regen: 0
-    }
+    ball: { damage: 1, cooldown: 8, radius: 72, color: '#4ade80', sound: 520, ammo: Infinity },
+    dart: { damage: 3, cooldown: 20, radius: 52, color: '#37e8ff', sound: 720, ammo: 6, maxAmmo: 6, regen: 0.018 },
+    saber: { damage: 5, cooldown: 32, radius: 150, color: '#facc15', sound: 260, ammo: Infinity }
   };
-
   const cooldowns = { ball: 0, dart: 0, saber: 0 };
 
   const leoImg = new Image();
@@ -320,6 +266,8 @@
   function resize() {
     w = canvas.width = window.innerWidth;
     h = canvas.height = window.innerHeight;
+    cx = w / 2;
+    cy = h / 2;
   }
 
   function initAudio() {
@@ -342,52 +290,37 @@
     osc.stop(audioCtx.currentTime + duration);
   }
 
-  function updateWeaponUI() {
-    weaponButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.weapon === currentWeapon));
-  }
-
   function setWeapon(name) {
     currentWeapon = name;
-    updateWeaponUI();
+    weaponButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.weapon === name));
     beep(name === 'saber' ? 280 : name === 'dart' ? 680 : 520, 0.04, 'square', 0.012);
   }
 
   function spawnEnemy() {
-    const side = Math.floor(Math.random() * 4);
-    let x, y;
-    if (side === 0) { x = Math.random() * w; y = -80; }
-    else if (side === 1) { x = w + 80; y = Math.random() * h; }
-    else if (side === 2) { x = Math.random() * w; y = h + 80; }
-    else { x = -80; y = Math.random() * h; }
-
-    const tough = Math.random() < Math.min(0.12 + wave * 0.04, 0.35);
+    const angle = Math.random() * Math.PI * 2;
+    const dist = Math.max(w, h) * 0.65;
+    const tough = Math.random() < Math.min(0.08 + wave * 0.02, 0.24);
     enemies.push({
-      x, y,
-      z: 0.25,
-      size: tough ? 34 : 26,
+      x: cx + Math.cos(angle) * dist,
+      y: cy + Math.sin(angle) * dist,
+      r: tough ? 26 : 22,
       hp: tough ? 3 : 1,
       maxHp: tough ? 3 : 1,
-      speed: (tough ? 0.010 : 0.014) + wave * 0.0012,
+      speed: (tough ? 0.7 : 0.95) + wave * 0.06,
       wobble: Math.random() * Math.PI * 2,
-      color: tough ? '#fb5fd7' : '#4ade80'
+      color: tough ? '#fb5fd7' : '#4ade80',
+      danger: false
     });
   }
 
   function pop(x, y, color, count = 12) {
     for (let i = 0; i < count; i++) {
-      particles.push({
-        x, y,
-        vx: -3 + Math.random() * 6,
-        vy: -3 + Math.random() * 6,
-        r: 2 + Math.random() * 4,
-        a: 0.8,
-        color
-      });
+      particles.push({ x, y, vx: -3 + Math.random() * 6, vy: -3 + Math.random() * 6, r: 2 + Math.random() * 4, a: 0.8, color });
     }
   }
 
   function floating(text, x, y, color = '#eef8ff') {
-    floatingTexts.push({ text, x, y, vy: -1.2, a: 1, color });
+    floatingTexts.push({ text, x, y, vy: -1.1, a: 1, color });
   }
 
   function shoot(clientX, clientY) {
@@ -395,34 +328,26 @@
     initAudio();
     const weapon = weapons[currentWeapon];
     if (cooldowns[currentWeapon] > 0) return;
-    if (weapon.ammo !== Infinity && weapon.ammo < 1) {
-      beep(120, 0.07, 'square', 0.016, 80);
-      return;
-    }
+    if (weapon.ammo !== Infinity && weapon.ammo < 1) { beep(120, 0.07, 'square', 0.016, 80); return; }
 
     cooldowns[currentWeapon] = weapon.cooldown;
     if (weapon.ammo !== Infinity) weapon.ammo -= 1;
 
-    const x = clientX ?? w / 2;
-    const y = clientY ?? h / 2;
+    const x = clientX ?? cx;
+    const y = clientY ?? cy;
     shots.push({ x, y, r: 8, max: weapon.radius, a: 1, color: weapon.color });
 
-    if (currentWeapon === 'saber') {
-      beep(weapon.sound, 0.13, 'sawtooth', 0.035, 520);
-      flash = Math.max(flash, 0.08);
-    } else {
-      beep(weapon.sound, 0.07, 'square', 0.026, weapon.sound * 1.5);
-    }
+    if (currentWeapon === 'saber') { beep(weapon.sound, 0.13, 'sawtooth', 0.035, 520); flash = Math.max(flash, 0.08); }
+    else beep(weapon.sound, 0.07, 'square', 0.026, weapon.sound * 1.5);
 
     let hit = false;
-    const hitRadius = weapon.radius;
     for (let i = enemies.length - 1; i >= 0; i--) {
       const e = enemies[i];
       const dx = e.x - x;
       const dy = e.y - y;
       const distance = Math.hypot(dx, dy);
-      const closeBonus = currentWeapon === 'saber' ? (e.z > 0.66 ? 100 : 0) : 0;
-      if (distance < hitRadius + e.size * e.z + closeBonus) {
+      const saberBonus = currentWeapon === 'saber' && Math.hypot(e.x - cx, e.y - cy) < 210 ? 100 : 0;
+      if (distance < weapon.radius + e.r + saberBonus) {
         e.hp -= weapon.damage;
         hit = true;
         pop(e.x, e.y, weapon.color, 8);
@@ -437,19 +362,16 @@
         if (currentWeapon !== 'saber') break;
       }
     }
-
-    if (!hit) {
-      floating('miss', x, y - 18, 'rgba(238,248,255,0.55)');
-    }
+    if (!hit) floating('miss', x, y - 18, 'rgba(238,248,255,0.5)');
   }
 
   function reset() {
     running = true;
     score = 0;
-    health = 5;
+    shield = 10;
     wave = 1;
     frame = 0;
-    spawnTimer = 20;
+    spawnTimer = 25;
     enemies.length = 0;
     shots.length = 0;
     particles.length = 0;
@@ -463,7 +385,6 @@
 
   function endGame() {
     running = false;
-    resultTitle.textContent = 'Game Over';
     resultText.textContent = `Score ${score} · Wave ${wave}`;
     gameOverScreen.classList.remove('hidden');
     beep(160, 0.22, 'sawtooth', 0.04, 70);
@@ -472,228 +393,116 @@
   function update() {
     frame++;
     if (running) {
-      wave = 1 + Math.floor(score / 120);
+      wave = 1 + Math.floor(score / 150);
       spawnTimer--;
       if (spawnTimer <= 0) {
         spawnEnemy();
-        spawnTimer = Math.max(26, 78 - wave * 5);
+        spawnTimer = Math.max(34, 92 - wave * 4);
       }
 
       Object.keys(cooldowns).forEach(k => cooldowns[k] = Math.max(0, cooldowns[k] - 1));
-      if (weapons.dart.ammo < weapons.dart.maxAmmo) {
-        weapons.dart.ammo = Math.min(weapons.dart.maxAmmo, weapons.dart.ammo + weapons.dart.regen);
-      }
+      if (weapons.dart.ammo < weapons.dart.maxAmmo) weapons.dart.ammo = Math.min(weapons.dart.maxAmmo, weapons.dart.ammo + weapons.dart.regen);
 
       for (let i = enemies.length - 1; i >= 0; i--) {
         const e = enemies[i];
-        e.z += e.speed;
-        e.wobble += 0.03;
-        const cx = w / 2;
-        const cy = h / 2;
-        e.x += (cx - e.x) * 0.006 + Math.cos(e.wobble) * 0.35;
-        e.y += (cy - e.y) * 0.006 + Math.sin(e.wobble) * 0.35;
-        if (e.z >= 1.04) {
+        const dx = cx - e.x;
+        const dy = cy - e.y;
+        const dist = Math.hypot(dx, dy) || 1;
+        const nx = dx / dist;
+        const ny = dy / dist;
+        e.wobble += 0.04;
+        e.x += nx * e.speed + Math.cos(e.wobble) * 0.22;
+        e.y += ny * e.speed + Math.sin(e.wobble) * 0.22;
+        e.danger = dist < 170;
+        if (dist < 58) {
           enemies.splice(i, 1);
-          health--;
+          shield--;
           shake = 12;
           flash = 0.2;
           pop(e.x, e.y, '#fb7185', 22);
           beep(110, 0.12, 'sawtooth', 0.035, 70);
-          if (health <= 0) endGame();
+          if (shield <= 0) endGame();
         }
       }
     }
 
     for (let i = shots.length - 1; i >= 0; i--) {
-      const s = shots[i];
-      s.r += 12;
-      s.a -= 0.08;
-      if (s.a <= 0 || s.r > s.max) shots.splice(i, 1);
+      const s = shots[i]; s.r += 12; s.a -= 0.08; if (s.a <= 0 || s.r > s.max) shots.splice(i, 1);
     }
-
     for (let i = particles.length - 1; i >= 0; i--) {
-      const p = particles[i];
-      p.x += p.vx;
-      p.y += p.vy;
-      p.vx *= 0.96;
-      p.vy *= 0.96;
-      p.a -= 0.025;
-      if (p.a <= 0) particles.splice(i, 1);
+      const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vx *= 0.96; p.vy *= 0.96; p.a -= 0.025; if (p.a <= 0) particles.splice(i, 1);
     }
-
     for (let i = floatingTexts.length - 1; i >= 0; i--) {
-      const t = floatingTexts[i];
-      t.y += t.vy;
-      t.a -= 0.025;
-      if (t.a <= 0) floatingTexts.splice(i, 1);
+      const t = floatingTexts[i]; t.y += t.vy; t.a -= 0.025; if (t.a <= 0) floatingTexts.splice(i, 1);
     }
-
     shake = Math.max(0, shake - 0.8);
     flash = Math.max(0, flash - 0.025);
-
-    statsEl.textContent = `Score ${score} · Health ${health} · Wave ${wave} · Dart ${Math.floor(weapons.dart.ammo)}/${weapons.dart.maxAmmo}`;
+    statsEl.textContent = `Score ${score} · Shield ${shield} · Wave ${wave} · Dart ${Math.floor(weapons.dart.ammo)}/${weapons.dart.maxAmmo}`;
   }
 
   function drawBackground() {
     const dx = shake ? (Math.random() - 0.5) * shake : 0;
     const dy = shake ? (Math.random() - 0.5) * shake : 0;
-    ctx.save();
-    ctx.translate(dx, dy);
+    ctx.save(); ctx.translate(dx, dy);
 
     const grad = ctx.createLinearGradient(0, 0, 0, h);
-    grad.addColorStop(0, '#0b2236');
-    grad.addColorStop(1, '#07131f');
-    ctx.fillStyle = grad;
-    ctx.fillRect(-30, -30, w + 60, h + 60);
+    grad.addColorStop(0, '#0b2236'); grad.addColorStop(1, '#07131f'); ctx.fillStyle = grad; ctx.fillRect(-30, -30, w + 60, h + 60);
 
-    ctx.strokeStyle = 'rgba(255,255,255,0.055)';
-    ctx.lineWidth = 1;
-    const cx = w / 2;
-    const cy = h / 2;
-    for (let i = 0; i < 24; i++) {
-      const a = (Math.PI * 2 * i) / 24 + frame * 0.001;
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.lineTo(cx + Math.cos(a) * w, cy + Math.sin(a) * h);
-      ctx.stroke();
-    }
-    for (let r = 80; r < Math.max(w, h); r += 90) {
-      ctx.beginPath();
-      ctx.arc(cx, cy, r + (frame % 90), 0, Math.PI * 2);
-      ctx.stroke();
-    }
+    ctx.strokeStyle = 'rgba(255,255,255,0.055)'; ctx.lineWidth = 1;
+    for (let i = 0; i < 24; i++) { const a = (Math.PI * 2 * i) / 24 + frame * 0.001; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a) * w, cy + Math.sin(a) * h); ctx.stroke(); }
+    for (let r = 80; r < Math.max(w, h); r += 90) { ctx.beginPath(); ctx.arc(cx, cy, r + (frame % 90), 0, Math.PI * 2); ctx.stroke(); }
   }
 
-  function drawEnemy(e) {
-    const size = e.size * e.z;
+  function drawLeoCenter() {
     ctx.save();
-    ctx.translate(e.x, e.y);
-    ctx.rotate(Math.sin(e.wobble) * 0.18);
-    ctx.shadowColor = e.color;
-    ctx.shadowBlur = 18;
-    ctx.fillStyle = e.color;
-    ctx.beginPath();
-    ctx.roundRect(-size / 2, -size / 2, size, size, 8);
-    ctx.fill();
+    ctx.shadowColor = 'rgba(55,232,255,0.32)'; ctx.shadowBlur = 18;
+    if (leoReady && leoImg.naturalWidth) ctx.drawImage(leoImg, cx - 40, cy - 40, 80, 80);
+    else { ctx.fillStyle = '#37e8ff'; ctx.beginPath(); ctx.arc(cx, cy, 36, 0, Math.PI * 2); ctx.fill(); }
     ctx.shadowBlur = 0;
-    ctx.fillStyle = 'rgba(0,0,0,0.28)';
-    ctx.fillRect(-size * 0.22, -size * 0.1, size * 0.12, size * 0.12);
-    ctx.fillRect(size * 0.12, -size * 0.1, size * 0.12, size * 0.12);
-    ctx.fillStyle = 'rgba(255,255,255,0.75)';
-    ctx.fillRect(-size / 2, -size / 2, size, 3);
-    if (e.maxHp > 1) {
-      ctx.fillStyle = 'rgba(0,0,0,0.35)';
-      ctx.fillRect(-size / 2, -size / 2 - 10, size, 4);
-      ctx.fillStyle = '#facc15';
-      ctx.fillRect(-size / 2, -size / 2 - 10, size * (e.hp / e.maxHp), 4);
-    }
+    ctx.strokeStyle = shield <= 3 ? '#fb7185' : 'rgba(55,232,255,0.55)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(cx, cy, 58, 0, Math.PI * 2); ctx.stroke();
     ctx.restore();
   }
 
-  function drawLeoCorner() {
-    if (!leoReady || !leoImg.naturalWidth) return;
-    const size = 64;
-    ctx.save();
-    ctx.globalAlpha = 0.9;
-    ctx.shadowColor = 'rgba(55,232,255,0.28)';
-    ctx.shadowBlur = 14;
-    ctx.drawImage(leoImg, 18, h - size - 18, size, size);
+  function drawEnemy(e) {
+    ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(Math.sin(e.wobble) * 0.18);
+    ctx.shadowColor = e.danger ? '#fb7185' : e.color; ctx.shadowBlur = e.danger ? 28 : 16;
+    ctx.fillStyle = e.danger ? '#fb7185' : e.color;
+    ctx.beginPath(); ctx.roundRect(-e.r, -e.r, e.r * 2, e.r * 2, 8); ctx.fill();
+    ctx.shadowBlur = 0; ctx.fillStyle = 'rgba(0,0,0,0.30)'; ctx.fillRect(-e.r * 0.32, -e.r * 0.14, e.r * 0.18, e.r * 0.18); ctx.fillRect(e.r * 0.14, -e.r * 0.14, e.r * 0.18, e.r * 0.18);
+    if (e.maxHp > 1) { ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(-e.r, -e.r - 10, e.r * 2, 4); ctx.fillStyle = '#facc15'; ctx.fillRect(-e.r, -e.r - 10, e.r * 2 * (e.hp / e.maxHp), 4); }
     ctx.restore();
   }
 
   function drawWeaponToy() {
-    const y = h - 70;
-    const x = w / 2;
-    const weapon = weapons[currentWeapon];
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(currentWeapon === 'saber' ? -0.7 : -0.2);
-    ctx.fillStyle = weapon.color;
-    ctx.shadowColor = weapon.color;
-    ctx.shadowBlur = 14;
-    if (currentWeapon === 'saber') {
-      ctx.fillRect(-14, -80, 28, 110);
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(-18, 20, 36, 12);
-    } else {
-      ctx.fillRect(-42, -12, 84, 24);
-      ctx.fillRect(18, 5, 16, 34);
-      ctx.fillStyle = 'rgba(255,255,255,0.8)';
-      ctx.fillRect(-32, -7, 26, 6);
-    }
+    const y = h - 70; const x = w / 2; const weapon = weapons[currentWeapon];
+    ctx.save(); ctx.translate(x, y); ctx.rotate(currentWeapon === 'saber' ? -0.7 : -0.2); ctx.fillStyle = weapon.color; ctx.shadowColor = weapon.color; ctx.shadowBlur = 14;
+    if (currentWeapon === 'saber') { ctx.fillRect(-14, -80, 28, 110); ctx.fillStyle = '#fff'; ctx.fillRect(-18, 20, 36, 12); }
+    else { ctx.fillRect(-42, -12, 84, 24); ctx.fillRect(18, 5, 16, 34); ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.fillRect(-32, -7, 26, 6); }
     ctx.restore();
   }
 
   function draw() {
     ctx.clearRect(0, 0, w, h);
     drawBackground();
-
-    enemies.sort((a,b) => a.z - b.z).forEach(drawEnemy);
-
-    for (const s of shots) {
-      ctx.globalAlpha = Math.max(0, s.a);
-      ctx.strokeStyle = s.color;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-    }
-
-    for (const p of particles) {
-      ctx.globalAlpha = p.a;
-      ctx.fillStyle = p.color;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.globalAlpha = 1;
-    }
-
-    for (const t of floatingTexts) {
-      ctx.globalAlpha = t.a;
-      ctx.fillStyle = t.color;
-      ctx.font = '800 16px system-ui, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(t.text, t.x, t.y);
-      ctx.globalAlpha = 1;
-    }
-
+    enemies.forEach(drawEnemy);
+    drawLeoCenter();
+    for (const s of shots) { ctx.globalAlpha = Math.max(0, s.a); ctx.strokeStyle = s.color; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1; }
+    for (const p of particles) { ctx.globalAlpha = p.a; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; }
+    for (const t of floatingTexts) { ctx.globalAlpha = t.a; ctx.fillStyle = t.color; ctx.font = '800 16px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(t.text, t.x, t.y); ctx.globalAlpha = 1; }
     drawWeaponToy();
-    drawLeoCorner();
-
-    if (flash > 0) {
-      ctx.fillStyle = `rgba(255,255,255,${flash})`;
-      ctx.fillRect(-30, -30, w + 60, h + 60);
-    }
-
+    if (flash > 0) { ctx.fillStyle = `rgba(255,255,255,${flash})`; ctx.fillRect(-30, -30, w + 60, h + 60); }
     ctx.restore();
   }
 
-  function loop() {
-    update();
-    draw();
-    requestAnimationFrame(loop);
-  }
+  function loop() { update(); draw(); requestAnimationFrame(loop); }
 
   canvas.addEventListener('pointerdown', (e) => shoot(e.clientX, e.clientY));
-  window.addEventListener('keydown', (e) => {
-    if (e.key === '1') setWeapon('ball');
-    if (e.key === '2') setWeapon('dart');
-    if (e.key === '3') setWeapon('saber');
-    if (e.code === 'Space') shoot(w / 2, h / 2);
-  });
-
-  weaponButtons.forEach(btn => btn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    setWeapon(btn.dataset.weapon);
-  }));
-
+  window.addEventListener('keydown', (e) => { if (e.key === '1') setWeapon('ball'); if (e.key === '2') setWeapon('dart'); if (e.key === '3') setWeapon('saber'); if (e.code === 'Space') shoot(cx, cy); });
+  weaponButtons.forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); setWeapon(btn.dataset.weapon); }));
   startBtn.addEventListener('click', () => { initAudio(); reset(); });
   restartBtn.addEventListener('click', () => { initAudio(); reset(); });
-
   window.addEventListener('resize', resize);
-  resize();
-  loop();
+  resize(); loop();
 })();
 </script>
 </body>
