@@ -247,13 +247,15 @@
 
   const enemies = [];
   const shots = [];
+  const beams = [];
+  const slashes = [];
   const particles = [];
   const floatingTexts = [];
 
   const weapons = {
-    ball: { damage: 1, cooldown: 8, radius: 72, color: '#4ade80', sound: 520, ammo: Infinity },
-    dart: { damage: 3, cooldown: 20, radius: 52, color: '#37e8ff', sound: 720, ammo: 6, maxAmmo: 6, regen: 0.018 },
-    saber: { damage: 5, cooldown: 32, radius: 150, color: '#facc15', sound: 260, ammo: Infinity }
+    ball: { damage: 1, cooldown: 7, radius: 70, color: '#4ade80', sound: 520, ammo: Infinity, label: 'BALL: spread + knockback' },
+    dart: { damage: 2, cooldown: 22, radius: 22, color: '#37e8ff', sound: 760, ammo: 6, maxAmmo: 6, regen: 0.018, label: 'DART: piercing line shot' },
+    saber: { damage: 99, cooldown: 42, radius: 190, color: '#facc15', sound: 260, ammo: Infinity, label: 'SABER: close-range panic clear' }
   };
   const cooldowns = { ball: 0, dart: 0, saber: 0 };
 
@@ -294,6 +296,7 @@
     currentWeapon = name;
     weaponButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.weapon === name));
     beep(name === 'saber' ? 280 : name === 'dart' ? 680 : 520, 0.04, 'square', 0.012);
+    floating(weapons[name].label, cx, cy - 95, weapons[name].color);
   }
 
   function spawnEnemy() {
@@ -335,34 +338,106 @@
 
     const x = clientX ?? cx;
     const y = clientY ?? cy;
-    shots.push({ x, y, r: 8, max: weapon.radius, a: 1, color: weapon.color });
 
-    if (currentWeapon === 'saber') { beep(weapon.sound, 0.13, 'sawtooth', 0.035, 520); flash = Math.max(flash, 0.08); }
-    else beep(weapon.sound, 0.07, 'square', 0.026, weapon.sound * 1.5);
-
-    let hit = false;
-    for (let i = enemies.length - 1; i >= 0; i--) {
-      const e = enemies[i];
-      const dx = e.x - x;
-      const dy = e.y - y;
-      const distance = Math.hypot(dx, dy);
-      const saberBonus = currentWeapon === 'saber' && Math.hypot(e.x - cx, e.y - cy) < 210 ? 100 : 0;
-      if (distance < weapon.radius + e.r + saberBonus) {
-        e.hp -= weapon.damage;
-        hit = true;
-        pop(e.x, e.y, weapon.color, 8);
-        floating('-' + weapon.damage, e.x, e.y - 20, weapon.color);
-        if (e.hp <= 0) {
-          score += e.maxHp * 10;
-          floating('+' + (e.maxHp * 10), e.x, e.y, '#facc15');
-          pop(e.x, e.y, e.color, 18);
-          enemies.splice(i, 1);
-          beep(300, 0.05, 'triangle', 0.018, 500);
+    if (currentWeapon === 'ball') {
+      // Forgiving spread shot: three soft blasts around the click point.
+      const offsets = [[0, 0], [-34, 18], [34, 18]];
+      beep(weapon.sound, 0.07, 'square', 0.024, weapon.sound * 1.35);
+      let hits = 0;
+      offsets.forEach(([ox, oy]) => {
+        const sx = x + ox;
+        const sy = y + oy;
+        shots.push({ x: sx, y: sy, r: 8, max: weapon.radius, a: 1, color: weapon.color });
+        for (let i = enemies.length - 1; i >= 0; i--) {
+          const e = enemies[i];
+          const distance = Math.hypot(e.x - sx, e.y - sy);
+          if (distance < weapon.radius + e.r) {
+            e.hp -= weapon.damage;
+            hits++;
+            // Knockback: push enemy slightly away from Leo's center.
+            const dx = e.x - cx;
+            const dy = e.y - cy;
+            const d = Math.hypot(dx, dy) || 1;
+            e.x += (dx / d) * 22;
+            e.y += (dy / d) * 22;
+            pop(e.x, e.y, weapon.color, 7);
+            if (e.hp <= 0) {
+              score += e.maxHp * 10;
+              floating('+' + (e.maxHp * 10), e.x, e.y, '#facc15');
+              pop(e.x, e.y, e.color, 18);
+              enemies.splice(i, 1);
+              beep(300, 0.05, 'triangle', 0.018, 500);
+            }
+          }
         }
-        if (currentWeapon !== 'saber') break;
-      }
+      });
+      if (!hits) floating('miss', x, y - 18, 'rgba(238,248,255,0.5)');
+      else floating('spread!', x, y - 28, weapon.color);
+      return;
     }
-    if (!hit) floating('miss', x, y - 18, 'rgba(238,248,255,0.5)');
+
+    if (currentWeapon === 'dart') {
+      // Piercing line shot from Leo's center through the click point.
+      const angle = Math.atan2(y - cy, x - cx);
+      const len = Math.max(w, h) * 1.1;
+      const x2 = cx + Math.cos(angle) * len;
+      const y2 = cy + Math.sin(angle) * len;
+      beams.push({ x1: cx, y1: cy, x2, y2, a: 1, color: weapon.color });
+      beep(weapon.sound, 0.08, 'square', 0.032, weapon.sound * 1.7);
+      let pierceHits = 0;
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        const e = enemies[i];
+        const d = distanceToSegment(e.x, e.y, cx, cy, x2, y2);
+        if (d < weapon.radius + e.r * 0.6) {
+          e.hp -= weapon.damage;
+          pierceHits++;
+          pop(e.x, e.y, weapon.color, 10);
+          floating('-' + weapon.damage, e.x, e.y - 20, weapon.color);
+          if (e.hp <= 0) {
+            const bonus = pierceHits > 1 ? 5 : 0;
+            score += e.maxHp * 12 + bonus;
+            floating('+' + (e.maxHp * 12 + bonus), e.x, e.y, '#facc15');
+            pop(e.x, e.y, e.color, 18);
+            enemies.splice(i, 1);
+          }
+        }
+      }
+      if (pierceHits > 1) floating('PIERCE x' + pierceHits, cx, cy - 120, weapon.color);
+      if (!pierceHits) floating('miss', x, y - 18, 'rgba(238,248,255,0.5)');
+      return;
+    }
+
+    if (currentWeapon === 'saber') {
+      // Panic clear: centered around Leo, not the click point.
+      slashes.push({ x: cx, y: cy, r: 24, max: weapon.radius, a: 1, color: weapon.color });
+      flash = Math.max(flash, 0.12);
+      shake = Math.max(shake, 5);
+      beep(weapon.sound, 0.16, 'sawtooth', 0.04, 620);
+      let cleared = 0;
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        const e = enemies[i];
+        const distance = Math.hypot(e.x - cx, e.y - cy);
+        if (distance < weapon.radius + e.r) {
+          cleared++;
+          score += e.maxHp * 10;
+          pop(e.x, e.y, weapon.color, 20);
+          enemies.splice(i, 1);
+        }
+      }
+      floating(cleared ? 'SABER CLEAR x' + cleared : 'too far!', cx, cy - 125, weapon.color);
+      return;
+    }
+  }
+
+  function distanceToSegment(px, py, x1, y1, x2, y2) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const lenSq = dx * dx + dy * dy || 1;
+    let t = ((px - x1) * dx + (py - y1) * dy) / lenSq;
+    t = Math.max(0, Math.min(1, t));
+    const lx = x1 + t * dx;
+    const ly = y1 + t * dy;
+    return Math.hypot(px - lx, py - ly);
   }
 
   function reset() {
@@ -374,6 +449,8 @@
     spawnTimer = 25;
     enemies.length = 0;
     shots.length = 0;
+    beams.length = 0;
+    slashes.length = 0;
     particles.length = 0;
     floatingTexts.length = 0;
     weapons.dart.ammo = weapons.dart.maxAmmo;
@@ -428,6 +505,12 @@
 
     for (let i = shots.length - 1; i >= 0; i--) {
       const s = shots[i]; s.r += 12; s.a -= 0.08; if (s.a <= 0 || s.r > s.max) shots.splice(i, 1);
+    }
+    for (let i = beams.length - 1; i >= 0; i--) {
+      const b = beams[i]; b.a -= 0.09; if (b.a <= 0) beams.splice(i, 1);
+    }
+    for (let i = slashes.length - 1; i >= 0; i--) {
+      const s = slashes[i]; s.r += 20; s.a -= 0.06; if (s.a <= 0 || s.r > s.max) slashes.splice(i, 1);
     }
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vx *= 0.96; p.vy *= 0.96; p.a -= 0.025; if (p.a <= 0) particles.splice(i, 1);
@@ -487,6 +570,8 @@
     enemies.forEach(drawEnemy);
     drawLeoCenter();
     for (const s of shots) { ctx.globalAlpha = Math.max(0, s.a); ctx.strokeStyle = s.color; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1; }
+    for (const b of beams) { ctx.globalAlpha = Math.max(0, b.a); ctx.strokeStyle = b.color; ctx.lineWidth = 5; ctx.shadowColor = b.color; ctx.shadowBlur = 18; ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke(); ctx.shadowBlur = 0; ctx.globalAlpha = 1; }
+    for (const s of slashes) { ctx.globalAlpha = Math.max(0, s.a); ctx.strokeStyle = s.color; ctx.lineWidth = 8; ctx.shadowColor = s.color; ctx.shadowBlur = 24; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.stroke(); ctx.shadowBlur = 0; ctx.globalAlpha = 1; }
     for (const p of particles) { ctx.globalAlpha = p.a; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; }
     for (const t of floatingTexts) { ctx.globalAlpha = t.a; ctx.fillStyle = t.color; ctx.font = '800 16px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(t.text, t.x, t.y); ctx.globalAlpha = 1; }
     drawWeaponToy();
