@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leo Blaster</title>
+<style>
+body {
+  margin: 0;
+  overflow: hidden;
+  background: #0b1b2b;
+  font-family: Arial;
+  color: white;
+}
+canvas {
+  display: block;
+}
+#hud {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  font-size: 18px;
+}
+#crosshair {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  margin-left: -10px;
+  margin-top: -10px;
+  pointer-events: none;
+}
+#crosshair:before, #crosshair:after {
+  content: '';
+  position: absolute;
+  background: white;
+}
+#crosshair:before {
+  left: 9px;
+  top: 0;
+  width: 2px;
+  height: 20px;
+}
+#crosshair:after {
+  top: 9px;
+  left: 0;
+  height: 2px;
+  width: 20px;
+}
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+<div id="hud">Score: 0</div>
+<div id="crosshair"></div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+let w, h;
+function resize() {
+  w = canvas.width = window.innerWidth;
+  h = canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+let enemies = [];
+let score = 0;
+
+function spawnEnemy() {
+  enemies.push({
+    x: Math.random() * w,
+    y: Math.random() * h,
+    size: 20,
+    speed: 0.5 + Math.random()
+  });
+}
+
+setInterval(spawnEnemy, 1200);
+
+function update() {
+  ctx.fillStyle = "#0b1b2b";
+  ctx.fillRect(0, 0, w, h);
+
+  for (let e of enemies) {
+    e.size += e.speed;
+
+    // draw enemy (simple glowing cube)
+    ctx.fillStyle = "lime";
+    ctx.shadowColor = "lime";
+    ctx.shadowBlur = 15;
+    ctx.fillRect(e.x - e.size/2, e.y - e.size/2, e.size, e.size);
+    ctx.shadowBlur = 0;
+  }
+
+  enemies = enemies.filter(e => e.size < 200);
+
+  requestAnimationFrame(update);
+}
+
+update();
+
+function shoot(x, y) {
+  enemies = enemies.filter(e => {
+    if (
+      x > e.x - e.size/2 &&
+      x < e.x + e.size/2 &&
+      y > e.y - e.size/2 &&
+      y < e.y + e.size/2
+    ) {
+      score++;
+      document.getElementById('hud').innerText = "Score: " + score;
+      return false;
+    }
+    return true;
+  });
+}
+
+window.addEventListener('click', e => {
+  shoot(e.clientX, e.clientY);
+});
+
+window.addEventListener('touchstart', e => {
+  const t = e.touches[0];
+  shoot(t.clientX, t.clientY);
+});
+</script>
+
+</body>
+</html>
