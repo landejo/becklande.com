@@ -237,6 +237,7 @@
     synth(1047, 0.06, 'square', 0.022, 1568);
     setTimeout(() => synth(1319, 0.08, 'square', 0.018, 2093), 55);
   }
+  function milestoneSound() {
     synth(523, 0.08, 'square', 0.022);
     setTimeout(() => synth(659, 0.08, 'square', 0.022), 70);
     setTimeout(() => synth(784, 0.12, 'square', 0.028), 140);
@@ -990,6 +991,8 @@
     }
     ctx.globalAlpha = 1;
   }
+
+  function drawParticles() {
     for (const p of game.particles) {
       ctx.globalAlpha=Math.max(0,p.a); ctx.fillStyle=p.color;
       ctx.fillRect(p.x,p.y,p.size,p.size);
