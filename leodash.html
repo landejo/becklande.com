@@ -186,6 +186,7 @@
   let namePos     = 0;
   let pendingScore = 0;
   let newEntryIdx  = -1;
+  let lastMilestone = 0;  // last milestone fired (in seconds)
 
   const C = { cyan:'#2ee6ff', pink:'#ff4fd8', yellow:'#ffd84d' };
 
@@ -233,6 +234,11 @@
   function starSound(mult) {
     const f = 700 + Math.min(4, mult) * 60;
     synth(f, 0.05, 'square', 0.015, f * 1.35);
+  }
+  function milestoneSound() {
+    synth(523, 0.08, 'square', 0.022);
+    setTimeout(() => synth(659, 0.08, 'square', 0.022), 70);
+    setTimeout(() => synth(784, 0.12, 'square', 0.028), 140);
   }
 
   function musicTick() {
@@ -349,15 +355,15 @@
 
   // ── Difficulty curve ──────────────────────────────────────────────────────
   function accelRate(t) {
-    if (t < 20)  return 0.0006;
-    if (t < 60)  return 0.0012;
-    if (t < 120) return 0.0018;
-    return 0.0022;
+    if (t < 15)  return 0.0010;   // noticeable warmup
+    if (t < 45)  return 0.0018;   // moderate
+    if (t < 90)  return 0.0026;   // aggressive
+    return 0.0032;                 // brutal plateau
   }
 
   function obstacleGap(t) {
-    const base = 530, min = 195;
-    return Math.max(min, base - t * 2.4 + (Math.random()*100 - 50));
+    const base = 500, min = 180;
+    return Math.max(min, base - t * 3.2 + (Math.random()*90 - 45));
   }
 
   function starGapDist(t) {
@@ -371,35 +377,35 @@
     const spike  = (dx,w,h) => ({ type:'spike', dx, w, h });
     const block  = (dx,w,h) => ({ type:'block', dx, w, h });
 
-    if (t < 15) {
+    if (t < 10) {
       return r < 0.6 ? [spike(0,28,18)] : [block(0,110,24)];
     }
-    if (t < 30) {
+    if (t < 20) {
       if (r < 0.35) return [spike(0,28,18)];
       if (r < 0.60) return [spike(0,32,26)];
       if (r < 0.80) return [block(0,110,24)];
       return [block(0,90,36)];
     }
-    if (t < 60) {
-      if (r < 0.20) return [spike(0,28,18)];
-      if (r < 0.38) return [spike(0,32,26)];
-      if (r < 0.52) return [spike(0,28,18), spike(0,52,20)];
-      if (r < 0.65) return [block(0,90,28)];
-      if (r < 0.78) return [block(0,75,42)];
+    if (t < 45) {
+      if (r < 0.18) return [spike(0,28,18)];
+      if (r < 0.35) return [spike(0,32,26)];
+      if (r < 0.50) return [spike(0,28,18), spike(52,28,20)];
+      if (r < 0.63) return [block(0,90,28)];
+      if (r < 0.76) return [block(0,75,42)];
       if (r < 0.90) return [spike(0,28,18), block(90,80,28)];
       return [block(0,80,28), spike(110,28,20)];
     }
-    if (t < 100) {
-      if (r < 0.12) return [spike(0,28,18)];
-      if (r < 0.26) return [spike(0,28,18), spike(52,28,20)];
-      if (r < 0.40) return [spike(0,28,18), spike(48,28,22), spike(96,28,18)];
-      if (r < 0.53) return [block(0,75,42)];
-      if (r < 0.65) return [block(0,60,56)];
-      if (r < 0.77) return [spike(0,28,18), block(88,78,28)];
-      if (r < 0.89) return [block(0,80,28), spike(108,28,20)];
+    if (t < 75) {
+      if (r < 0.10) return [spike(0,28,18)];
+      if (r < 0.24) return [spike(0,28,18), spike(52,28,20)];
+      if (r < 0.38) return [spike(0,28,18), spike(48,28,22), spike(96,28,18)];
+      if (r < 0.50) return [block(0,75,42)];
+      if (r < 0.62) return [block(0,60,56)];
+      if (r < 0.74) return [spike(0,28,18), block(88,78,28)];
+      if (r < 0.87) return [block(0,80,28), spike(108,28,20)];
       return [spike(0,28,20), block(78,60,32), spike(166,28,22)];
     }
-    // 100s+: brutal combos
+    // 75s+: brutal combos
     if (r < 0.10) return [spike(0,28,18), spike(52,28,20)];
     if (r < 0.22) return [spike(0,28,18), spike(48,28,22), spike(96,28,18)];
     if (r < 0.34) return [block(0,75,42)];
@@ -476,6 +482,7 @@
     }
     spawnCursor = game.player.x + 520;
     starCursor  = game.player.x + 280;
+    lastMilestone = 0;
     generateAhead();
     updateHUD();
     startMusic();
@@ -581,6 +588,16 @@
     game.speed = Math.min(SPD_MAX, game.speed + accelRate(game.elapsed) * s);
     game.scrollX += game.speed * s;
 
+    // survival milestones at 30 / 60 / 90s
+    const mCheck = Math.floor(game.elapsed / 30) * 30;
+    if (mCheck > 0 && mCheck > lastMilestone) {
+      lastMilestone = mCheck;
+      game.flash = Math.max(game.flash, 0.18);
+      milestoneSound();
+      const label = mCheck >= 60 ? `${mCheck/60}m` : `${mCheck}s`;
+      game.popups.push({ x: w/2, y: h/2 - 40, text: `🔥 ${label} survived!`, life: 2.2 });
+    }
+
     // distance score (speed-weighted, continuous)
     score += game.speed * s * 0.09;
 
@@ -607,9 +624,13 @@
     const bounds = playerBounds();
 
     // obstacles
+    // Track whether player is standing on a block this frame
+    let onBlock = false;
+
     for (const obs of game.obstacles) {
       const sx = obs.x - game.scrollX;
       if (sx + obs.w < -80 || sx > w + 80) continue;
+
       if (obs.type === 'spike') {
         const box = { x:sx+11, y:groundY()-obs.h, w:Math.max(2,obs.w-22), h:Math.max(8,obs.h-4) };
         if (intersects(bounds, box)) {
@@ -617,17 +638,36 @@
           game.scrollX=Math.max(0,game.scrollX-280); p.y=floor; p.vy=0; p.rotation=0; p.onGround=true; p.coyote=9; game.flash=0.14; return;
         }
       } else {
-        const box = { x:sx, y:groundY()-obs.h, w:obs.w, h:obs.h };
-        if (intersects(bounds, box)) {
-          if (bounds.y+bounds.h-p.vy*s <= box.y+16 && p.vy >= 0) {
-            p.y=box.y-p.size/2; p.vy=0; p.rotation=0; p.onGround=true; p.coyote=9;
-          } else {
-            if (!practiceMode) { fail(); return; }
-            game.scrollX=Math.max(0,game.scrollX-280); p.y=floor; p.vy=0; p.rotation=0; p.onGround=true; p.coyote=9; game.flash=0.14; return;
-          }
+        // Block: world-space top surface
+        const blockTop = groundY() - obs.h;
+        const box = { x:sx, y:blockTop, w:obs.w, h:obs.h };
+
+        if (!intersects(bounds, box)) continue;
+
+        // Determine which side was hit.
+        // "Landing on top" = player's bottom was at or above block top before this frame's move.
+        // We use p.vy to check: coming down (vy>=0) AND bottom of player is near the top surface.
+        const playerBottom = p.y + p.size / 2;
+        const prevBottom   = playerBottom - p.vy * s;   // where bottom was last frame
+
+        if (p.vy >= 0 && prevBottom <= blockTop + 6) {
+          // Land on top — snap to surface and ride
+          p.y      = blockTop - p.size / 2;
+          p.vy     = 0;
+          p.rotation = 0;
+          p.onGround = true;
+          p.coyote   = 9;
+          onBlock    = true;
+        } else {
+          // Side or bottom hit — fatal
+          if (!practiceMode) { fail(); return; }
+          game.scrollX=Math.max(0,game.scrollX-280); p.y=floor; p.vy=0; p.rotation=0; p.onGround=true; p.coyote=9; game.flash=0.14; return;
         }
       }
     }
+
+    // If player is on a block, keep them pinned to it this frame
+    // (gravity will be reapplied next frame; coyote timer handles the edge)
 
     // stars
     for (const star of game.stars) {
@@ -666,25 +706,44 @@
     const dx = game.cameraShake>0?(Math.random()-.5)*game.cameraShake:0;
     const dy = game.cameraShake>0?(Math.random()-.5)*game.cameraShake*.35:0;
     ctx.save(); ctx.translate(dx,dy);
-    const bg=ctx.createLinearGradient(0,0,0,h);
-    bg.addColorStop(0,'#0d2236'); bg.addColorStop(1,'#09131f');
+
+    // Speed-based sky color shift: cool blue → deep red/amber
+    // t=0 at start speed, t=1 at max speed. Keep it subtle — max 0.82 so it
+    // never goes full red (which would wash out pink spikes and yellow stars).
+    const t = Math.min(1, (game.speed - SPD_START) / (SPD_MAX - SPD_START));
+
+    // Lerp helper
+    const lerp = (a, b, t) => Math.round(a + (b - a) * t);
+
+    // Sky top: deep navy → deep wine
+    const topR = lerp(0x0d, 0x28, t), topG = lerp(0x22, 0x08, t), topB = lerp(0x36, 0x18, t);
+    // Sky bottom: near-black blue → near-black red
+    const botR = lerp(0x09, 0x1e, t), botG = lerp(0x13, 0x07, t), botB = lerp(0x1f, 0x0e, t);
+
+    const bg = ctx.createLinearGradient(0,0,0,h);
+    bg.addColorStop(0, `rgb(${topR},${topG},${topB})`);
+    bg.addColorStop(1, `rgb(${botR},${botG},${botB})`);
     ctx.fillStyle=bg; ctx.fillRect(0,0,w,h);
-    // deco
+
+    // deco — tint shifts with speed too (stays low opacity so it never interferes)
     for (const d of game.deco) {
       const rawX = d.x - game.scrollX*0.35;
       const drawX = ((rawX%8000)+8000)%8000;
       if (drawX>w+20) continue;
-      ctx.fillStyle=d.color; ctx.globalAlpha=0.11;
+      ctx.fillStyle=d.color; ctx.globalAlpha=0.10;
       ctx.fillRect(drawX,d.y,d.size,d.size);
     }
     ctx.globalAlpha=1;
-    // grid
+
+    // grid lines — keep contrast-neutral
     const off=-(game.scrollX*.35%52);
     ctx.strokeStyle='rgba(255,255,255,0.04)'; ctx.lineWidth=1;
     for (let x=off; x<w+52; x+=52) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke(); }
-    // ground
+
+    // ground — fixed dark, ground line color shifts cyan→orange subtly
     ctx.fillStyle='#0f1827'; ctx.fillRect(0,groundY(),w,h-groundY());
-    ctx.fillStyle='rgba(46,230,255,0.35)'; ctx.fillRect(0,groundY(),w,4);
+    const glR=lerp(46,255,t*0.5), glG=lerp(230,140,t*0.5), glB=lerp(255,40,t*0.5);
+    ctx.fillStyle=`rgba(${glR},${glG},${glB},0.35)`; ctx.fillRect(0,groundY(),w,4);
   }
 
   function drawObstacles() {
@@ -699,10 +758,11 @@
         ctx.fillStyle=g; ctx.fill(); ctx.strokeStyle='rgba(255,255,255,0.18)'; ctx.stroke();
       } else {
         const y=groundY()-obs.h;
-        const g=ctx.createLinearGradient(x,y,x+obs.w,y+obs.h);
-        g.addColorStop(0,C.cyan); g.addColorStop(1,'#178cff');
+        const g=ctx.createLinearGradient(x,y,x,y+obs.h);
+        g.addColorStop(0,'#3dffb0'); g.addColorStop(1,'#00a86b');
         ctx.fillStyle=g; ctx.fillRect(x,y,obs.w,obs.h);
-        ctx.strokeStyle='rgba(255,255,255,0.18)'; ctx.strokeRect(x+.5,y+.5,obs.w-1,obs.h-1);
+        ctx.strokeStyle='rgba(255,255,255,0.22)'; ctx.strokeRect(x+.5,y+.5,obs.w-1,obs.h-1);
+        ctx.fillStyle='rgba(255,255,255,0.18)'; ctx.fillRect(x+1,y+1,obs.w-2,3);
       }
     }
   }
@@ -735,24 +795,43 @@
   }
 
   function drawPopups() {
-    ctx.font='700 17px Inter,sans-serif'; ctx.textAlign='center';
+    ctx.textAlign='center';
     for (const p of game.popups) {
-      ctx.globalAlpha=Math.min(1,p.life*2);
-      ctx.fillStyle=C.yellow; ctx.shadowColor='rgba(255,216,77,0.7)'; ctx.shadowBlur=8;
+      const isMilestone = p.text.startsWith('🔥');
+      ctx.font = isMilestone ? '800 22px Inter,sans-serif' : '700 17px Inter,sans-serif';
+      ctx.globalAlpha=Math.min(1, p.life * (isMilestone ? 0.9 : 2));
+      ctx.fillStyle = isMilestone ? C.pink : C.yellow;
+      ctx.shadowColor = isMilestone ? 'rgba(255,79,216,0.7)' : 'rgba(255,216,77,0.7)';
+      ctx.shadowBlur=10;
       ctx.fillText(p.text,p.x,p.y);
     }
     ctx.globalAlpha=1; ctx.shadowBlur=0; ctx.textAlign='left';
   }
 
   function drawPlayer() {
-    ctx.save(); ctx.translate(game.player.x,game.player.y); ctx.rotate(game.player.rotation);
+    const p = game.player;
+    // coyote time glow — faint arc under feet when coyote frames are active
+    if (p.coyote > 0 && !p.onGround) {
+      const alpha = Math.min(0.55, (p.coyote / 9) * 0.55);
+      const footX = p.x, footY = p.y + p.size / 2 + 4;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(footX, footY, p.size * 0.38, Math.PI * 0.1, Math.PI * 0.9);
+      ctx.strokeStyle = `rgba(61,255,176,${alpha})`;
+      ctx.lineWidth = 3;
+      ctx.shadowColor = '#3dffb0';
+      ctx.shadowBlur = 8;
+      ctx.stroke();
+      ctx.restore();
+    }
+    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rotation);
     if (spriteLoaded&&leo.naturalWidth>0) {
       ctx.shadowColor='rgba(46,230,255,0.32)'; ctx.shadowBlur=16;
-      ctx.drawImage(leo,-game.player.size/2,-game.player.size/2,game.player.size,game.player.size);
+      ctx.drawImage(leo,-p.size/2,-p.size/2,p.size,p.size);
       ctx.shadowBlur=0;
     } else {
       ctx.fillStyle=C.cyan;
-      ctx.fillRect(-game.player.size/2,-game.player.size/2,game.player.size,game.player.size);
+      ctx.fillRect(-p.size/2,-p.size/2,p.size,p.size);
     }
     ctx.restore();
   }
