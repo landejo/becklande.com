@@ -609,6 +609,7 @@
     const p = game.player;
     p.jumpBuffer = Math.max(0, p.jumpBuffer - s);
     p.coyote     = Math.max(0, p.coyote - s);
+    const prevY  = p.y;                  // capture BEFORE move
     p.vy += 0.54 * s;
     p.y  += p.vy * s;
     p.rotation += 0.045 * s;
@@ -638,22 +639,21 @@
           game.scrollX=Math.max(0,game.scrollX-280); p.y=floor; p.vy=0; p.rotation=0; p.onGround=true; p.coyote=9; game.flash=0.14; return;
         }
       } else {
-        // Block: world-space top surface
+        // Block collision — determine top vs side using where player was last frame
         const blockTop = groundY() - obs.h;
         const box = { x:sx, y:blockTop, w:obs.w, h:obs.h };
 
         if (!intersects(bounds, box)) continue;
 
-        // Determine which side was hit.
-        // "Landing on top" = player's bottom was at or above block top before this frame's move.
-        // We use p.vy to check: coming down (vy>=0) AND bottom of player is near the top surface.
-        const playerBottom = p.y + p.size / 2;
-        const prevBottom   = playerBottom - p.vy * s;   // where bottom was last frame
+        // Previous bottom edge (before this frame's move)
+        const prevBottom = prevY + p.size / 2;
 
-        if (p.vy >= 0 && prevBottom <= blockTop + 6) {
-          // Land on top — snap to surface and ride
-          p.y      = blockTop - p.size / 2;
-          p.vy     = 0;
+        // Top landing: player's bottom was above (or at) block top before moving,
+        // OR player is already riding (was snapped last frame, vy clamped to 0).
+        // Give a generous tolerance (+8px) to absorb float imprecision and high speeds.
+        if (prevBottom <= blockTop + 8) {
+          p.y        = blockTop - p.size / 2;
+          p.vy       = 0;
           p.rotation = 0;
           p.onGround = true;
           p.coyote   = 9;
