@@ -260,23 +260,24 @@
         return { x:p.x - size/2, y:p.y - size/2, w:size, h:size };
       }
       function intersects(a,b) { return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
-      function updateParticles() {
+      function updateParticles(s = 1) {
         for (let i = game.particles.length - 1; i >= 0; i--) {
-          const p = game.particles[i]; p.x += p.vx; p.y += p.vy; p.a -= 0.02; if (p.a <= 0) game.particles.splice(i,1);
+          const p = game.particles[i]; p.x += p.vx * s; p.y += p.vy * s; p.a -= 0.02 * s; if (p.a <= 0) game.particles.splice(i,1);
         }
       }
 
-      function update() {
+      function update(dt) {
+        const s = dt / 16.667; // scale factor: 1.0 at 60Hz, 0.5 at 120Hz
         if (!game.running) {
-          updateParticles(); game.cameraShake = Math.max(0, game.cameraShake - 0.6); game.flash = Math.max(0, game.flash - 0.025); return;
+          updateParticles(s); game.cameraShake = Math.max(0, game.cameraShake - 0.6 * s); game.flash = Math.max(0, game.flash - 0.025 * s); return;
         }
 
-        game.scrollX += game.speed; game.speed += 0.00018; game.completion = (game.scrollX / levelLength) * 100; updateProgress();
+        game.scrollX += game.speed * s; game.speed += 0.00018 * s; game.completion = (game.scrollX / levelLength) * 100; updateProgress();
 
         const p = game.player;
-        p.jumpBuffer = Math.max(0, p.jumpBuffer - 1);
-        p.coyote = Math.max(0, p.coyote - 1);
-        p.vy += game.gravity; p.y += p.vy; p.rotation += 0.045;
+        p.jumpBuffer = Math.max(0, p.jumpBuffer - s);
+        p.coyote = Math.max(0, p.coyote - s);
+        p.vy += game.gravity * s; p.y += p.vy * s; p.rotation += 0.045 * s;
 
         const floor = groundY() - p.size / 2;
         if (p.y >= floor) {
@@ -334,7 +335,7 @@
           }
         }
 
-        updateParticles();
+        updateParticles(s);
         if (game.scrollX >= levelLength) { game.completion = 100; win(); }
       }
 
@@ -392,13 +393,21 @@
         ctx.restore();
       }
       function drawFlash() { if (game.flash <= 0) return; ctx.fillStyle = `rgba(255,255,255,${game.flash})`; ctx.fillRect(0,0,w,h); }
-      function drawMenuBackdrop() {
-        ctx.clearRect(0,0,w,h); game.scrollX += 0.35; drawBackground(); drawObstacles(); drawStars(); drawPlayer(); drawFlash(); ctx.restore();
+      function drawMenuBackdrop(s = 1) {
+        ctx.clearRect(0,0,w,h); game.scrollX += 0.35 * s; drawBackground(); drawObstacles(); drawStars(); drawPlayer(); drawFlash(); ctx.restore();
       }
       function render() {
         ctx.clearRect(0,0,w,h); drawBackground(); drawObstacles(); drawStars(); drawParticles(); drawPlayer(); drawFlash(); ctx.restore();
       }
-      function frame() { update(); if (game.running || game.ended) render(); else drawMenuBackdrop(); raf = requestAnimationFrame(frame); }
+      let lastTime = undefined;
+      function frame(ts) {
+        if (lastTime === undefined) { lastTime = ts; raf = requestAnimationFrame(frame); return; }
+        const dt = Math.min(ts - lastTime, 50);
+        lastTime = ts;
+        update(dt);
+        if (game.running || game.ended) render(); else drawMenuBackdrop(dt / 16.667);
+        raf = requestAnimationFrame(frame);
+      }
       function pressAction(e) { if (e) e.preventDefault(); initAudio(); if (game.running) queueJump(); }
 
       window.addEventListener('resize', resize);
