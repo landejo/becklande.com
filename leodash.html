@@ -194,7 +194,7 @@
     running:false, ended:false,
     scrollX:0, speed:SPD_START, elapsed:0,
     cameraShake:0, flash:0,
-    player:{ x:0, y:0, size:56, vy:0, rotation:0, onGround:false, coyote:0, jumpBuffer:0 },
+    player:{ x:0, y:0, size:72, vy:0, rotation:0, onGround:false, coyote:0, jumpBuffer:0 },
     particles:[], obstacles:[], stars:[], deco:[], popups:[]
   };
 
@@ -210,7 +210,7 @@
     canvas.width = w; canvas.height = h;
     if (!game.running) game.player.y = groundY() - game.player.size / 2;
   }
-  function groundY() { return Math.floor(h * 0.74); }
+  function groundY() { return Math.floor(h * 0.78); }
   window.addEventListener('resize', resize);
 
   // ── Audio ─────────────────────────────────────────────────────────────────
@@ -372,48 +372,76 @@
   }
 
   // Pattern library — returns array of obstacle descriptors
+  // Spikes: w=base width, h=height. Visually: taller/wider = harder to read + jump.
+  // Groups: single, double (tight ~44px gap), triple (tight), spread-double (~70px gap)
   function pickPattern(t) {
     const r = Math.random();
-    const spike  = (dx,w,h) => ({ type:'spike', dx, w, h });
-    const block  = (dx,w,h) => ({ type:'block', dx, w, h });
+    // spike(dx, w, h)  block(dx, w, h)
+    const S = (dx,w,h) => ({ type:'spike', dx, w:w||32, h:h||22 });
+    const B = (dx,w,h) => ({ type:'block', dx, w:w||100, h:h||28 });
+
+    // Spike size helpers for variety
+    const sm  = (dx) => S(dx, 28, 20);   // small
+    const med = (dx) => S(dx, 36, 28);   // medium
+    const lg  = (dx) => S(dx, 46, 38);   // large — needs a bigger jump
+    const xl  = (dx) => S(dx, 54, 48);   // XL — near-block height, rare
 
     if (t < 10) {
-      return r < 0.6 ? [spike(0,28,18)] : [block(0,110,24)];
+      // Pure intro: only small singles and easy low blocks
+      return r < 0.65 ? [sm(0)] : [B(0,120,26)];
     }
-    if (t < 20) {
-      if (r < 0.35) return [spike(0,28,18)];
-      if (r < 0.60) return [spike(0,32,26)];
-      if (r < 0.80) return [block(0,110,24)];
-      return [block(0,90,36)];
+
+    if (t < 22) {
+      // Add medium spikes and double-wide easy blocks
+      if (r < 0.40) return [sm(0)];
+      if (r < 0.65) return [med(0)];
+      if (r < 0.82) return [B(0,120,26)];
+      return [B(0,100,38)];
     }
-    if (t < 45) {
-      if (r < 0.18) return [spike(0,28,18)];
-      if (r < 0.35) return [spike(0,32,26)];
-      if (r < 0.50) return [spike(0,28,18), spike(52,28,20)];
-      if (r < 0.63) return [block(0,90,28)];
-      if (r < 0.76) return [block(0,75,42)];
-      if (r < 0.90) return [spike(0,28,18), block(90,80,28)];
-      return [block(0,80,28), spike(110,28,20)];
+
+    if (t < 40) {
+      // Add tight doubles, large spikes, combo spike+block
+      if (r < 0.16) return [sm(0)];
+      if (r < 0.30) return [med(0)];
+      if (r < 0.42) return [lg(0)];
+      if (r < 0.54) return [sm(0), sm(44)];            // tight double small
+      if (r < 0.64) return [med(0), sm(50)];           // mixed double
+      if (r < 0.74) return [B(0,110,26)];
+      if (r < 0.84) return [B(0,85,44)];
+      if (r < 0.92) return [sm(0), B(80,90,28)];       // spike then block
+      return [B(0,80,30), sm(108)];                     // block then spike
     }
-    if (t < 75) {
-      if (r < 0.10) return [spike(0,28,18)];
-      if (r < 0.24) return [spike(0,28,18), spike(52,28,20)];
-      if (r < 0.38) return [spike(0,28,18), spike(48,28,22), spike(96,28,18)];
-      if (r < 0.50) return [block(0,75,42)];
-      if (r < 0.62) return [block(0,60,56)];
-      if (r < 0.74) return [spike(0,28,18), block(88,78,28)];
-      if (r < 0.87) return [block(0,80,28), spike(108,28,20)];
-      return [spike(0,28,20), block(78,60,32), spike(166,28,22)];
+
+    if (t < 65) {
+      // Triples, XL spikes, taller blocks, combos
+      if (r < 0.08) return [sm(0)];
+      if (r < 0.18) return [med(0)];
+      if (r < 0.28) return [lg(0)];
+      if (r < 0.37) return [xl(0)];
+      if (r < 0.46) return [sm(0), sm(44)];
+      if (r < 0.54) return [med(0), med(50)];          // double medium
+      if (r < 0.61) return [sm(0), sm(44), sm(88)];    // tight triple small
+      if (r < 0.68) return [med(0), sm(52), med(96)];  // mixed triple
+      if (r < 0.75) return [B(0,80,44)];
+      if (r < 0.82) return [B(0,65,58)];
+      if (r < 0.89) return [lg(0), B(90,80,30)];
+      return [B(0,80,30), lg(108)];
     }
-    // 75s+: brutal combos
-    if (r < 0.10) return [spike(0,28,18), spike(52,28,20)];
-    if (r < 0.22) return [spike(0,28,18), spike(48,28,22), spike(96,28,18)];
-    if (r < 0.34) return [block(0,75,42)];
-    if (r < 0.46) return [block(0,60,56)];
-    if (r < 0.58) return [spike(0,28,18), block(88,78,28)];
-    if (r < 0.70) return [block(0,80,28), spike(108,28,20)];
-    if (r < 0.82) return [spike(0,28,20), block(78,60,32), spike(166,28,22)];
-    return [spike(0,28,22), spike(50,28,22), block(110,60,40)];
+
+    // 65s+: brutal — everything, weighted toward combos and large obstacles
+    if (r < 0.06) return [med(0)];
+    if (r < 0.14) return [lg(0)];
+    if (r < 0.22) return [xl(0)];
+    if (r < 0.30) return [med(0), med(52)];
+    if (r < 0.38) return [sm(0), sm(44), sm(88)];
+    if (r < 0.46) return [med(0), sm(50), med(96)];
+    if (r < 0.53) return [lg(0), lg(60)];              // double large
+    if (r < 0.60) return [B(0,75,46)];
+    if (r < 0.67) return [B(0,62,62)];
+    if (r < 0.74) return [lg(0), B(92,80,32)];
+    if (r < 0.81) return [B(0,80,32), lg(110)];
+    if (r < 0.88) return [sm(0), B(76,64,36), sm(168)];
+    return [med(0), med(52), B(120,60,42)];
   }
 
   // Star formation — returns array of {dy} above ground
@@ -508,7 +536,7 @@
 
   function queueJump()   { game.player.jumpBuffer = 10; }
   function performJump() {
-    game.player.vy = -12.6; game.player.onGround = false;
+    game.player.vy = -15.5; game.player.onGround = false;
     game.player.coyote = 0; game.player.jumpBuffer = 0;
     jumpSound();
   }
@@ -610,7 +638,7 @@
     p.jumpBuffer = Math.max(0, p.jumpBuffer - s);
     p.coyote     = Math.max(0, p.coyote - s);
     const prevY  = p.y;                  // capture BEFORE move
-    p.vy += 0.54 * s;
+    p.vy += 0.68 * s;
     p.y  += p.vy * s;
     p.rotation += 0.045 * s;
 
@@ -633,33 +661,37 @@
       if (sx + obs.w < -80 || sx > w + 80) continue;
 
       if (obs.type === 'spike') {
-        const box = { x:sx+11, y:groundY()-obs.h, w:Math.max(2,obs.w-22), h:Math.max(8,obs.h-4) };
+        // Inset hitbox ~28% each side so clipping the very edge of a spike doesn't kill
+        const insetX = Math.floor(obs.w * 0.28);
+        const insetY = Math.floor(obs.h * 0.12);
+        const box = { x:sx+insetX, y:groundY()-obs.h+insetY, w:Math.max(4,obs.w-insetX*2), h:Math.max(8,obs.h-insetY) };
         if (intersects(bounds, box)) {
           if (!practiceMode) { fail(); return; }
           game.scrollX=Math.max(0,game.scrollX-280); p.y=floor; p.vy=0; p.rotation=0; p.onGround=true; p.coyote=9; game.flash=0.14; return;
         }
       } else {
-        // Block collision — determine top vs side using where player was last frame
         const blockTop = groundY() - obs.h;
         const box = { x:sx, y:blockTop, w:obs.w, h:obs.h };
-
         if (!intersects(bounds, box)) continue;
 
-        // Previous bottom edge (before this frame's move)
-        const prevBottom = prevY + p.size / 2;
+        // Hitbox half-height (bounds is p.size*0.60, centered on p.y)
+        const hbHalf = p.size * 0.30;
+        // Previous bottom of hitbox, using pre-move center (prevY)
+        const prevHitBottom = prevY + hbHalf;
 
-        // Top landing: player's bottom was above (or at) block top before moving,
-        // OR player is already riding (was snapped last frame, vy clamped to 0).
-        // Give a generous tolerance (+8px) to absorb float imprecision and high speeds.
-        if (prevBottom <= blockTop + 8) {
-          p.y        = blockTop - p.size / 2;
+        // Top landing if previous hitbox bottom was at or above block top surface.
+        // Tolerance of 12px catches fast landings where one frame of gravity
+        // pushes the player slightly into the block before collision resolves.
+        // Also catches "already riding": prevY was snapped, so prevHitBottom ≈ blockTop.
+        if (prevHitBottom <= blockTop + 12) {
+          p.y        = blockTop - hbHalf;
           p.vy       = 0;
           p.rotation = 0;
           p.onGround = true;
           p.coyote   = 9;
           onBlock    = true;
         } else {
-          // Side or bottom hit — fatal
+          // Side or bottom collision — fatal
           if (!practiceMode) { fail(); return; }
           game.scrollX=Math.max(0,game.scrollX-280); p.y=floor; p.vy=0; p.rotation=0; p.onGround=true; p.coyote=9; game.flash=0.14; return;
         }
@@ -754,8 +786,13 @@
         const y=groundY();
         ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+obs.w/2,y-obs.h); ctx.lineTo(x+obs.w,y); ctx.closePath();
         const g=ctx.createLinearGradient(x,y,x,y-obs.h);
-        g.addColorStop(0,C.pink); g.addColorStop(1,C.yellow);
-        ctx.fillStyle=g; ctx.fill(); ctx.strokeStyle='rgba(255,255,255,0.18)'; ctx.stroke();
+        // Larger spikes shade more toward orange-red for visual danger signal
+        const danger = Math.min(1, obs.h / 48);
+        g.addColorStop(0, danger > 0.5 ? '#ff2060' : C.pink);
+        g.addColorStop(1, danger > 0.5 ? '#ff9000' : C.yellow);
+        ctx.fillStyle=g; ctx.fill();
+        ctx.strokeStyle=`rgba(255,255,255,${0.12 + danger*0.1})`; ctx.lineWidth=1; ctx.stroke();
+        ctx.lineWidth=1;
       } else {
         const y=groundY()-obs.h;
         const g=ctx.createLinearGradient(x,y,x,y+obs.h);
