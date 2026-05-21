@@ -727,7 +727,7 @@
         const prevHitBottom = prevY + hbHalf;
 
         if (prevHitBottom <= blockTop + 12) {
-          // Land / ride on top
+          // ── Top: land and ride ──────────────────────────────────────────
           p.y        = blockTop - hbHalf;
           p.vy       = 0;
           p.rotation = 0;
@@ -735,8 +735,21 @@
           p.coyote   = 9;
           onBlock    = true;
         } else if (obs.floatY > 0) {
-          // Floating block — passthrough from sides/below (not lethal)
-          // do nothing, player clips through
+          // ── Floating block: bounce bottom, slide sides ──────────────────
+          const blockBottom = blockTop + obs.h;
+          const prevHitTop  = prevY - hbHalf; // top of hitbox last frame
+
+          if (prevHitTop >= blockBottom - 8 && p.vy < 0) {
+            // Hit from below — bounce head
+            p.y   = blockBottom + hbHalf + 1;
+            p.vy  = Math.abs(p.vy) * 0.35; // small downward kick
+          } else {
+            // Side contact — push player to left edge of block, no death
+            // The block is scrolling left so this resolves naturally within a frame
+            p.y = Math.min(p.y, blockTop - hbHalf - 1); // prevent clipping into top
+            // nudge player x slightly left so they don't get dragged by the block
+            // (player x is fixed; world scrolls — just don't snap, let scroll resolve it)
+          }
         } else {
           // Ground block side/bottom hit — fatal
           fail(); return;
