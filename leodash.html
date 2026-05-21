@@ -78,7 +78,6 @@
       <p class="sub" style="font-size:11px;margin-top:2px">Stars score more as you speed up. Speed bar shows your danger level.</p>
       <div class="controls">
         <button class="btn" id="startBtn">Play</button>
-        <button class="btn alt" id="practiceBtn">Practice</button>
         <button class="btn alt" id="lbBtn">🏆 Scores</button>
       </div>
       <div class="tiny">Space · ↑ · Tap to jump</div>
@@ -146,7 +145,6 @@
   const bestText       = document.getElementById('bestText');
   const jumpBtn        = document.getElementById('jumpBtn');
   const startBtn       = document.getElementById('startBtn');
-  const practiceBtn    = document.getElementById('practiceBtn');
   const lbBtn          = document.getElementById('lbBtn');
   const retryBtn       = document.getElementById('retryBtn');
   const menuBtn        = document.getElementById('menuBtn');
@@ -176,7 +174,6 @@
   // ── Runtime state ─────────────────────────────────────────────────────────
   let w = 0, h = 0;
   let raf = null, lastTime = undefined;
-  let practiceMode = false;
   let audioCtx = null, beatTimer = null, beatStep = 0;
   let score = 0;
   let bestScore = Number(localStorage.getItem(BEST_KEY) || 0);
@@ -517,8 +514,7 @@
     lastTime = undefined;
   }
 
-  function start(practice = false) {
-    practiceMode = practice;
+  function start() {
     initAudio();
     startScreen.classList.add('hidden');
     gameOverScreen.classList.add('hidden');
@@ -570,7 +566,7 @@
     nameEntrySection.classList.add('hidden');
     lbSection.classList.add('hidden');
 
-    if (!practiceMode && isTopScore(final)) {
+    if (isTopScore(final)) {
       nameChars = ['A','A','A']; namePos = 0;
       renderNameDisplay();
       nameEntrySection.classList.remove('hidden');
@@ -648,7 +644,7 @@
     } else {
       p.onGround = false;
     }
-    if (p.jumpBuffer > 0 && (p.onGround || p.coyote > 0)) performJump();
+    // NOTE: jump check moved to after block collision so block-top counts as ground
 
     const bounds = playerBounds();
 
@@ -665,10 +661,7 @@
         const insetX = Math.floor(obs.w * 0.28);
         const insetY = Math.floor(obs.h * 0.12);
         const box = { x:sx+insetX, y:groundY()-obs.h+insetY, w:Math.max(4,obs.w-insetX*2), h:Math.max(8,obs.h-insetY) };
-        if (intersects(bounds, box)) {
-          if (!practiceMode) { fail(); return; }
-          game.scrollX=Math.max(0,game.scrollX-280); p.y=floor; p.vy=0; p.rotation=0; p.onGround=true; p.coyote=9; game.flash=0.14; return;
-        }
+        if (intersects(bounds, box)) { fail(); return; }
       } else {
         const blockTop = groundY() - obs.h;
         const box = { x:sx, y:blockTop, w:obs.w, h:obs.h };
@@ -691,15 +684,13 @@
           p.coyote   = 9;
           onBlock    = true;
         } else {
-          // Side or bottom collision — fatal
-          if (!practiceMode) { fail(); return; }
-          game.scrollX=Math.max(0,game.scrollX-280); p.y=floor; p.vy=0; p.rotation=0; p.onGround=true; p.coyote=9; game.flash=0.14; return;
+          fail(); return;
         }
       }
     }
 
-    // If player is on a block, keep them pinned to it this frame
-    // (gravity will be reapplied next frame; coyote timer handles the edge)
+    // Jump check — after block collision so onBlock landing is reflected in onGround
+    if (p.jumpBuffer > 0 && (p.onGround || p.coyote > 0)) performJump();
 
     // stars
     for (const star of game.stars) {
@@ -739,25 +730,40 @@
     const dy = game.cameraShake>0?(Math.random()-.5)*game.cameraShake*.35:0;
     ctx.save(); ctx.translate(dx,dy);
 
-    // Speed-based sky color shift: cool blue → deep red/amber
-    // t=0 at start speed, t=1 at max speed. Keep it subtle — max 0.82 so it
-    // never goes full red (which would wash out pink spikes and yellow stars).
+    // Fixed dark sky — never changes so gameplay elements stay readable
+    ctx.fillStyle='#0d2236'; ctx.fillRect(0,0,w,h);
+
+    // Speed indicator: vibrant band at the very top ~24px tall
+    // Shifts cyan → hot pink → amber as speed increases
     const t = Math.min(1, (game.speed - SPD_START) / (SPD_MAX - SPD_START));
+    const bandH = 24;
+    const band = ctx.createLinearGradient(0,0,w,0); // horizontal, left to right
+    if (t < 0.5) {
+      // cyan → pink
+      const u = t * 2;
+      band.addColorStop(0,   `rgba(46,230,255,${0.55 + u*0.35})`);
+      band.addColorStop(0.5, `rgba(${Math.round(46+u*209)},${Math.round(230-u*151)},${Math.round(255-u*27)},${0.7+u*0.25})`);
+      band.addColorStop(1,   `rgba(255,${Math.round(79+u*50)},${Math.round(216-u*100)},${0.55+u*0.35})`);
+    } else {
+      // pink → amber
+      const u = (t - 0.5) * 2;
+      band.addColorStop(0,   `rgba(255,79,216,${0.9+u*0.1})`);
+      band.addColorStop(0.5, `rgba(255,${Math.round(79+u*120)},${Math.round(216-u*176)},1)`);
+      band.addColorStop(1,   `rgba(255,${Math.round(199+u*29)},${Math.round(40-u*16)},1)`);
+    }
+    ctx.fillStyle = band;
+    // Fade from solid at top to transparent at bottom of band
+    const bandFade = ctx.createLinearGradient(0,0,0,bandH);
+    bandFade.addColorStop(0, 'rgba(0,0,0,1)');   // used as mask via globalCompositeOperation
+    bandFade.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillRect(0,0,w,bandH);
+    // Feather bottom edge with a short dark fade so the band blends into the sky
+    const fade = ctx.createLinearGradient(0, bandH*0.4, 0, bandH*1.1);
+    fade.addColorStop(0, 'rgba(13,34,54,0)');
+    fade.addColorStop(1, 'rgba(13,34,54,1)');
+    ctx.fillStyle = fade; ctx.fillRect(0, bandH*0.4, w, bandH*0.8);
 
-    // Lerp helper
-    const lerp = (a, b, t) => Math.round(a + (b - a) * t);
-
-    // Sky top: deep navy → deep wine
-    const topR = lerp(0x0d, 0x28, t), topG = lerp(0x22, 0x08, t), topB = lerp(0x36, 0x18, t);
-    // Sky bottom: near-black blue → near-black red
-    const botR = lerp(0x09, 0x1e, t), botG = lerp(0x13, 0x07, t), botB = lerp(0x1f, 0x0e, t);
-
-    const bg = ctx.createLinearGradient(0,0,0,h);
-    bg.addColorStop(0, `rgb(${topR},${topG},${topB})`);
-    bg.addColorStop(1, `rgb(${botR},${botG},${botB})`);
-    ctx.fillStyle=bg; ctx.fillRect(0,0,w,h);
-
-    // deco — tint shifts with speed too (stays low opacity so it never interferes)
+    // deco squares (parallax, low opacity — never interfere)
     for (const d of game.deco) {
       const rawX = d.x - game.scrollX*0.35;
       const drawX = ((rawX%8000)+8000)%8000;
@@ -767,15 +773,15 @@
     }
     ctx.globalAlpha=1;
 
-    // grid lines — keep contrast-neutral
+    // grid lines
     const off=-(game.scrollX*.35%52);
     ctx.strokeStyle='rgba(255,255,255,0.04)'; ctx.lineWidth=1;
     for (let x=off; x<w+52; x+=52) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke(); }
 
-    // ground — fixed dark, ground line color shifts cyan→orange subtly
+    // ground
     ctx.fillStyle='#0f1827'; ctx.fillRect(0,groundY(),w,h-groundY());
-    const glR=lerp(46,255,t*0.5), glG=lerp(230,140,t*0.5), glB=lerp(255,40,t*0.5);
-    ctx.fillStyle=`rgba(${glR},${glG},${glB},0.35)`; ctx.fillRect(0,groundY(),w,4);
+    // Ground line stays cyan — no speed tint here
+    ctx.fillStyle='rgba(46,230,255,0.35)'; ctx.fillRect(0,groundY(),w,4);
   }
 
   function drawObstacles() {
@@ -922,9 +928,8 @@
   });
 
   jumpBtn.addEventListener('pointerdown', e => { e.preventDefault(); initAudio(); if (game.running) queueJump(); });
-  startBtn.addEventListener('click',    () => start(false));
-  practiceBtn.addEventListener('click', () => start(true));
-  retryBtn.addEventListener('click',    () => start(practiceMode));
+  startBtn.addEventListener('click',    () => start());
+  retryBtn.addEventListener('click',    () => start());
   menuBtn.addEventListener('click',     backToMenu);
 
   lbBtn.addEventListener('click', () => {
