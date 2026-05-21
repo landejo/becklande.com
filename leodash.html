@@ -768,17 +768,22 @@
     }
 
     // ── Shooting stars ────────────────────────────────────────────────────────
-    // Spawn on timer
     if (game.elapsed >= nextShootingStar) {
       nextShootingStar = game.elapsed + 8 + Math.random() * 7;
-      // Enter from right, random height in upper 2/3 of play area
-      const sy = groundY() * (0.15 + Math.random() * 0.55);
+      // Spawn within the player's reachable vertical range.
+      // Ground level (player center): groundY() - p.size/2
+      // Jump apex from ground: ~176px above that
+      // From a floating block top (~190px up): another ~176px = ~366px above ground center
+      const groundCenter = groundY() - game.player.size / 2;
+      const minY = groundCenter - 340;  // high end (from block top jump)
+      const maxY = groundCenter - 60;   // low end (just above running height)
+      const sy = minY + Math.random() * (maxY - minY);
       game.shootingStars.push({
-        x: w + 40,          // screen x (moves with player view — these are screen-space)
+        x: w + 40,
         y: sy,
-        vx: -(game.speed * 2.2 + 4 + Math.random() * 3), // fast left
+        vx: -(game.speed * 1.1 + 3 + Math.random() * 2), // slower — interception window is reasonable
         taken: false,
-        tail: []            // will store recent positions for trail
+        tail: []
       });
     }
 
