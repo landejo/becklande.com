@@ -819,7 +819,6 @@
         const pts = Math.round(150 * mult);
         score += pts;
         shootingStarSound();
-        game.flash = Math.max(game.flash, 0.12);
         game.popups.push({ x: ss.x, y: ss.y - 20, text: `⭐ +${pts}`, life: 1.8, shootingStar: true });
         for (let j = 0; j < 14; j++) {
           game.particles.push({
