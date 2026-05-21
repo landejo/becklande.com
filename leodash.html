@@ -183,16 +183,17 @@
   let namePos     = 0;
   let pendingScore = 0;
   let newEntryIdx  = -1;
-  let lastMilestone = 0;  // last milestone fired (in seconds)
+  let lastMilestone = 0;
+  let nextShootingStar = 10;
 
   const C = { cyan:'#2ee6ff', pink:'#ff4fd8', yellow:'#ffd84d' };
 
   const game = {
     running:false, ended:false,
     scrollX:0, speed:SPD_START, elapsed:0,
-    cameraShake:0, flash:0,
+    cameraShake:0, flash:0, milestoneFlash:0,
     player:{ x:0, y:0, size:72, vy:0, rotation:0, onGround:false, coyote:0, jumpBuffer:0 },
-    particles:[], obstacles:[], stars:[], deco:[], popups:[]
+    particles:[], obstacles:[], stars:[], shootingStars:[], deco:[], popups:[]
   };
 
   // ── Sprite ────────────────────────────────────────────────────────────────
@@ -232,7 +233,10 @@
     const f = 700 + Math.min(4, mult) * 60;
     synth(f, 0.05, 'square', 0.015, f * 1.35);
   }
-  function milestoneSound() {
+  function shootingStarSound() {
+    synth(1047, 0.06, 'square', 0.022, 1568);
+    setTimeout(() => synth(1319, 0.08, 'square', 0.018, 2093), 55);
+  }
     synth(523, 0.08, 'square', 0.022);
     setTimeout(() => synth(659, 0.08, 'square', 0.022), 70);
     setTimeout(() => synth(784, 0.12, 'square', 0.028), 140);
@@ -373,90 +377,134 @@
   // Groups: single, double (tight ~44px gap), triple (tight), spread-double (~70px gap)
   function pickPattern(t) {
     const r = Math.random();
-    // spike(dx, w, h)  block(dx, w, h)
     const S = (dx,w,h) => ({ type:'spike', dx, w:w||32, h:h||22 });
-    const B = (dx,w,h) => ({ type:'block', dx, w:w||100, h:h||28 });
+    // Ground blocks
+    const Bsw = (dx) => ({ type:'block', dx, w:140, h:28,  floatY:0 });
+    const Bsn = (dx) => ({ type:'block', dx, w:72,  h:28,  floatY:0 });
+    const Bmw = (dx) => ({ type:'block', dx, w:120, h:44,  floatY:0 });
+    const Bmn = (dx) => ({ type:'block', dx, w:80,  h:44,  floatY:0 });
+    const Btw = (dx) => ({ type:'block', dx, w:100, h:62,  floatY:0 });
+    const Btn = (dx) => ({ type:'block', dx, w:68,  h:62,  floatY:0 });
+    const Bvt = (dx) => ({ type:'block', dx, w:80,  h:80,  floatY:0 });
+    // Floating blocks — floatY = px above ground to bottom of block
+    // Low float (90px): reachable with a normal jump
+    const Flo = (dx,w) => ({ type:'block', dx, w:w||90,  h:22, floatY:90  });
+    // Mid float (140px): reachable at jump apex
+    const Fmi = (dx,w) => ({ type:'block', dx, w:w||80,  h:22, floatY:140 });
+    // High float (190px): need to jump FROM a ground block
+    const Fhi = (dx,w) => ({ type:'block', dx, w:w||70,  h:22, floatY:190 });
 
-    // Spike size helpers for variety
-    const sm  = (dx) => S(dx, 28, 20);   // small
-    const med = (dx) => S(dx, 36, 28);   // medium
-    const lg  = (dx) => S(dx, 46, 38);   // large — needs a bigger jump
-    const xl  = (dx) => S(dx, 54, 48);   // XL — near-block height, rare
+    const sm  = (dx) => S(dx, 28, 20);
+    const med = (dx) => S(dx, 36, 28);
+    const lg  = (dx) => S(dx, 46, 38);
+    const xl  = (dx) => S(dx, 54, 48);
 
     if (t < 10) {
-      // Pure intro: only small singles and easy low blocks
-      return r < 0.65 ? [sm(0)] : [B(0,120,26)];
+      return r < 0.55 ? [sm(0)] : r < 0.80 ? [Bsw(0)] : [Flo(0,110)];
     }
-
     if (t < 22) {
-      // Add medium spikes and double-wide easy blocks
-      if (r < 0.40) return [sm(0)];
-      if (r < 0.65) return [med(0)];
-      if (r < 0.82) return [B(0,120,26)];
-      return [B(0,100,38)];
+      if (r < 0.28) return [sm(0)];
+      if (r < 0.48) return [med(0)];
+      if (r < 0.63) return [Bsw(0)];
+      if (r < 0.76) return [Bmw(0)];
+      if (r < 0.88) return [Flo(0,110)];
+      return [Flo(0,100), Flo(130,100)];   // two low floaters
     }
-
     if (t < 40) {
-      // Add tight doubles, large spikes, combo spike+block
-      if (r < 0.16) return [sm(0)];
-      if (r < 0.30) return [med(0)];
-      if (r < 0.42) return [lg(0)];
-      if (r < 0.54) return [sm(0), sm(44)];            // tight double small
-      if (r < 0.64) return [med(0), sm(50)];           // mixed double
-      if (r < 0.74) return [B(0,110,26)];
-      if (r < 0.84) return [B(0,85,44)];
-      if (r < 0.92) return [sm(0), B(80,90,28)];       // spike then block
-      return [B(0,80,30), sm(108)];                     // block then spike
+      if (r < 0.12) return [sm(0)];
+      if (r < 0.22) return [med(0)];
+      if (r < 0.30) return [lg(0)];
+      if (r < 0.38) return [sm(0), sm(44)];
+      if (r < 0.46) return [med(0), sm(50)];
+      if (r < 0.54) return [Bsw(0)];
+      if (r < 0.62) return [Bmw(0)];
+      if (r < 0.70) return [Bsn(0)];
+      if (r < 0.77) return [sm(0), Bsn(80)];
+      if (r < 0.84) return [Flo(0,100)];
+      if (r < 0.91) return [Fmi(0,90)];
+      return [Flo(0,100), sm(140)];         // float then spike
     }
-
     if (t < 65) {
-      // Triples, XL spikes, taller blocks, combos
-      if (r < 0.08) return [sm(0)];
-      if (r < 0.18) return [med(0)];
-      if (r < 0.28) return [lg(0)];
-      if (r < 0.37) return [xl(0)];
-      if (r < 0.46) return [sm(0), sm(44)];
-      if (r < 0.54) return [med(0), med(50)];          // double medium
-      if (r < 0.61) return [sm(0), sm(44), sm(88)];    // tight triple small
-      if (r < 0.68) return [med(0), sm(52), med(96)];  // mixed triple
-      if (r < 0.75) return [B(0,80,44)];
-      if (r < 0.82) return [B(0,65,58)];
-      if (r < 0.89) return [lg(0), B(90,80,30)];
-      return [B(0,80,30), lg(108)];
+      if (r < 0.07) return [sm(0)];
+      if (r < 0.14) return [med(0)];
+      if (r < 0.20) return [lg(0)];
+      if (r < 0.26) return [xl(0)];
+      if (r < 0.32) return [sm(0), sm(44)];
+      if (r < 0.38) return [med(0), med(50)];
+      if (r < 0.44) return [sm(0), sm(44), sm(88)];
+      if (r < 0.50) return [Bmw(0)];
+      if (r < 0.56) return [Btw(0)];
+      if (r < 0.62) return [lg(0), Bmn(90)];
+      if (r < 0.68) return [Flo(0,110)];
+      if (r < 0.74) return [Fmi(0,90)];
+      if (r < 0.80) return [Fhi(0,80)];
+      if (r < 0.86) return [Flo(0,100), Fmi(140,80)]; // staircase floaters
+      if (r < 0.92) return [sm(0), Flo(90,90)];       // spike then floater
+      return [med(0), Fmi(80,80), med(180)];
     }
-
-    // 65s+: brutal — everything, weighted toward combos and large obstacles
-    if (r < 0.06) return [med(0)];
-    if (r < 0.14) return [lg(0)];
-    if (r < 0.22) return [xl(0)];
-    if (r < 0.30) return [med(0), med(52)];
-    if (r < 0.38) return [sm(0), sm(44), sm(88)];
-    if (r < 0.46) return [med(0), sm(50), med(96)];
-    if (r < 0.53) return [lg(0), lg(60)];              // double large
-    if (r < 0.60) return [B(0,75,46)];
-    if (r < 0.67) return [B(0,62,62)];
-    if (r < 0.74) return [lg(0), B(92,80,32)];
-    if (r < 0.81) return [B(0,80,32), lg(110)];
-    if (r < 0.88) return [sm(0), B(76,64,36), sm(168)];
-    return [med(0), med(52), B(120,60,42)];
+    // 65s+: brutal
+    if (r < 0.06) return [lg(0)];
+    if (r < 0.12) return [xl(0)];
+    if (r < 0.18) return [med(0), med(52)];
+    if (r < 0.24) return [sm(0), sm(44), sm(88)];
+    if (r < 0.30) return [lg(0), lg(60)];
+    if (r < 0.36) return [Btw(0)];
+    if (r < 0.42) return [Bvt(0)];
+    if (r < 0.48) return [Fhi(0,80)];
+    if (r < 0.54) return [Flo(0,100), Fmi(130,80), Fhi(250,70)]; // rising staircase
+    if (r < 0.60) return [lg(0), Btw(92)];
+    if (r < 0.66) return [sm(0), Fmi(80,80), sm(200)];
+    if (r < 0.72) return [med(0), med(52), Bmn(120)];
+    if (r < 0.78) return [Fmi(0,90), sm(130), Fmi(200,90)];
+    if (r < 0.84) return [Bvt(0), lg(110), sm(158)];
+    return [med(0), Flo(80,90), Fhi(200,70)];
   }
 
-  // Star formation — returns array of {dy} above ground
+  // Star formation — returns array of {dy} above ground (negative = above ground)
+  // Ground-reachable: dy >= -175 (jumpable from floor)
+  // Block-top-only:   dy <= -210 (needs block height ~60+ plus a jump)
   function pickStars(t) {
     const r = Math.random();
+
+    // Heights reference:
+    //   -100  very low, easy grab
+    //   -145  comfortable mid-air
+    //   -175  high but floor-jumpable at apex
+    //   -215  only reachable from medium block top
+    //   -255  only reachable from tall block top
+
     if (t < 20) {
-      return [{ dy:-160 }];
+      // Single, easy heights only
+      if (r < 0.6) return [{ dy:-140 }];
+      return [{ dy:-110 }];
     }
-    if (t < 50) {
-      if (r < 0.45) return [{ dy:-160 }];
-      return [{ dy:-120 }, { dy:-168 }, { dy:-120 }];
+    if (t < 40) {
+      if (r < 0.30) return [{ dy:-140 }];
+      if (r < 0.55) return [{ dy:-165 }];
+      if (r < 0.70) return [{ dy:-115 }, { dy:-155 }, { dy:-115 }];  // arc
+      if (r < 0.85) return [{ dy:-140 }, { dy:-140 }, { dy:-140 }];  // row
+      return [{ dy:-215 }];  // first high star — needs a block
     }
-    // 50s+: richer formations
-    if (r < 0.20) return [{ dy:-160 }];
-    if (r < 0.45) return [{ dy:-120 }, { dy:-168 }, { dy:-120 }];
-    if (r < 0.65) return [{ dy:-100 }, { dy:-145 }, { dy:-185 }, { dy:-145 }, { dy:-100 }];
-    if (r < 0.82) return [{ dy:-160 }, { dy:-160 }, { dy:-160 }]; // row of 3
-    return [{ dy:-110 }, { dy:-160 }, { dy:-110 }, { dy:-160 }, { dy:-110 }];
+    if (t < 65) {
+      if (r < 0.15) return [{ dy:-140 }];
+      if (r < 0.28) return [{ dy:-165 }];
+      if (r < 0.40) return [{ dy:-215 }];                                       // block-top
+      if (r < 0.52) return [{ dy:-255 }];                                       // tall block-top
+      if (r < 0.62) return [{ dy:-115 }, { dy:-158 }, { dy:-115 }];             // arc low
+      if (r < 0.72) return [{ dy:-140 }, { dy:-175 }, { dy:-215 }, { dy:-175 }, { dy:-140 }]; // rising arc
+      if (r < 0.82) return [{ dy:-140 }, { dy:-140 }, { dy:-140 }];             // row
+      return [{ dy:-215 }, { dy:-215 }, { dy:-215 }];                           // high row (block only)
+    }
+    // 65s+: mix of accessible and block-only, more complex formations
+    if (r < 0.12) return [{ dy:-165 }];
+    if (r < 0.22) return [{ dy:-215 }];
+    if (r < 0.32) return [{ dy:-255 }];
+    if (r < 0.42) return [{ dy:-115 }, { dy:-158 }, { dy:-200 }, { dy:-158 }, { dy:-115 }];  // steep arc
+    if (r < 0.52) return [{ dy:-215 }, { dy:-255 }, { dy:-215 }];               // high arc
+    if (r < 0.62) return [{ dy:-140 }, { dy:-140 }, { dy:-140 }, { dy:-140 }]; // long row
+    if (r < 0.72) return [{ dy:-215 }, { dy:-215 }, { dy:-215 }, { dy:-215 }]; // high long row
+    if (r < 0.82) return [{ dy:-115 }, { dy:-158 }, { dy:-215 }, { dy:-255 }, { dy:-215 }]; // rising staircase
+    return [{ dy:-255 }, { dy:-215 }, { dy:-165 }, { dy:-215 }, { dy:-255 }];  // valley
   }
 
   // ── World generation (streaming) ──────────────────────────────────────────
@@ -467,7 +515,7 @@
       const t = game.elapsed;
       const pattern = pickPattern(t);
       for (const p of pattern) {
-        game.obstacles.push({ type:p.type, x:spawnCursor + p.dx, w:p.w, h:p.h });
+        game.obstacles.push({ type:p.type, x:spawnCursor + p.dx, w:p.w, h:p.h, floatY: p.floatY || 0 });
       }
       spawnCursor += obstacleGap(t);
     }
@@ -494,12 +542,12 @@
     score = 0;
     game.running = true; game.ended = false;
     game.scrollX = 0; game.speed = SPD_START; game.elapsed = 0;
-    game.cameraShake = 0; game.flash = 0;
+    game.cameraShake = 0; game.flash = 0; game.milestoneFlash = 0;
     game.player.x = Math.max(120, Math.min(250, w * 0.22));
     game.player.y = groundY() - game.player.size / 2;
     game.player.vy = 0; game.player.rotation = 0;
     game.player.onGround = true; game.player.coyote = 0; game.player.jumpBuffer = 0;
-    game.particles = []; game.obstacles = []; game.stars = []; game.popups = [];
+    game.particles = []; game.obstacles = []; game.stars = []; game.shootingStars = []; game.popups = [];
     // deco
     game.deco = [];
     for (let i = 0; i < 60; i++) {
@@ -508,6 +556,7 @@
     spawnCursor = game.player.x + 520;
     starCursor  = game.player.x + 280;
     lastMilestone = 0;
+    nextShootingStar = 8 + Math.random() * 6; // first one between 8–14s
     generateAhead();
     updateHUD();
     startMusic();
@@ -604,6 +653,7 @@
       }
       game.cameraShake = Math.max(0, game.cameraShake - 0.6*s);
       game.flash = Math.max(0, game.flash - 0.025*s);
+      game.milestoneFlash = Math.max(0, game.milestoneFlash - 0.04*s);
       return;
     }
 
@@ -612,14 +662,16 @@
     game.speed = Math.min(SPD_MAX, game.speed + accelRate(game.elapsed) * s);
     game.scrollX += game.speed * s;
 
-    // survival milestones at 30 / 60 / 90s
-    const mCheck = Math.floor(game.elapsed / 30) * 30;
+    // survival milestones every 20s
+    const mCheck = Math.floor(game.elapsed / 20) * 20;
     if (mCheck > 0 && mCheck > lastMilestone) {
       lastMilestone = mCheck;
-      game.flash = Math.max(game.flash, 0.18);
+      game.milestoneFlash = 0.5; // separate from death flash, decays fast
       milestoneSound();
-      const label = mCheck >= 60 ? `${mCheck/60}m` : `${mCheck}s`;
-      game.popups.push({ x: w/2, y: h/2 - 40, text: `🔥 ${label} survived!`, life: 2.2 });
+      const mins = Math.floor(mCheck / 60);
+      const secs = mCheck % 60;
+      const label = mins > 0 ? `${mins}m ${secs > 0 ? secs + 's' : ''}` : `${secs}s`;
+      game.popups.push({ x: w/2, y: h/2, text: `🔥 ${label}!`, life: 1.6, milestone: true });
     }
 
     // distance score (speed-weighted, continuous)
@@ -663,27 +715,29 @@
         const box = { x:sx+insetX, y:groundY()-obs.h+insetY, w:Math.max(4,obs.w-insetX*2), h:Math.max(8,obs.h-insetY) };
         if (intersects(bounds, box)) { fail(); return; }
       } else {
-        const blockTop = groundY() - obs.h;
+        // blockTop in screen coords:
+        // ground-anchored: groundY - h  (sits on ground)
+        // floating: groundY - floatY - h  (bottom of block at groundY - floatY)
+        const blockTop = groundY() - (obs.floatY || 0) - obs.h;
         const box = { x:sx, y:blockTop, w:obs.w, h:obs.h };
         if (!intersects(bounds, box)) continue;
 
-        // Hitbox half-height (bounds is p.size*0.60, centered on p.y)
         const hbHalf = p.size * 0.30;
-        // Previous bottom of hitbox, using pre-move center (prevY)
         const prevHitBottom = prevY + hbHalf;
 
-        // Top landing if previous hitbox bottom was at or above block top surface.
-        // Tolerance of 12px catches fast landings where one frame of gravity
-        // pushes the player slightly into the block before collision resolves.
-        // Also catches "already riding": prevY was snapped, so prevHitBottom ≈ blockTop.
         if (prevHitBottom <= blockTop + 12) {
+          // Land / ride on top
           p.y        = blockTop - hbHalf;
           p.vy       = 0;
           p.rotation = 0;
           p.onGround = true;
           p.coyote   = 9;
           onBlock    = true;
+        } else if (obs.floatY > 0) {
+          // Floating block — passthrough from sides/below (not lethal)
+          // do nothing, player clips through
         } else {
+          // Ground block side/bottom hit — fatal
           fail(); return;
         }
       }
@@ -699,7 +753,6 @@
       const box = { x:sx-17, y:sy-17, w:34, h:34 };
       if (intersects(bounds, box)) {
         star.taken = true;
-        if (p.vy > -5.5) p.vy = -5.5;
         const mult = speedMult();
         starSound(mult);
         addStarBonus(star.x, star.y);
@@ -713,7 +766,53 @@
       }
     }
 
-    // particle & popup updates
+    // ── Shooting stars ────────────────────────────────────────────────────────
+    // Spawn on timer
+    if (game.elapsed >= nextShootingStar) {
+      nextShootingStar = game.elapsed + 8 + Math.random() * 7;
+      // Enter from right, random height in upper 2/3 of play area
+      const sy = groundY() * (0.15 + Math.random() * 0.55);
+      game.shootingStars.push({
+        x: w + 40,          // screen x (moves with player view — these are screen-space)
+        y: sy,
+        vx: -(game.speed * 2.2 + 4 + Math.random() * 3), // fast left
+        taken: false,
+        tail: []            // will store recent positions for trail
+      });
+    }
+
+    // Update shooting stars
+    for (let i = game.shootingStars.length - 1; i >= 0; i--) {
+      const ss = game.shootingStars[i];
+      if (ss.taken) { game.shootingStars.splice(i,1); continue; }
+      // Store tail point
+      ss.tail.unshift({ x: ss.x, y: ss.y });
+      if (ss.tail.length > 12) ss.tail.pop();
+      ss.x += ss.vx * s;
+      // Prune if off left edge
+      if (ss.x < -60) { game.shootingStars.splice(i,1); continue; }
+      // Collision — use screen coords directly (shooting stars are screen-space)
+      const pb = playerBounds();
+      const box = { x: ss.x - 14, y: ss.y - 14, w: 28, h: 28 };
+      if (intersects(pb, box)) {
+        ss.taken = true;
+        const mult = speedMult();
+        const pts = Math.round(150 * mult);
+        score += pts;
+        shootingStarSound();
+        game.flash = Math.max(game.flash, 0.12);
+        game.popups.push({ x: ss.x, y: ss.y - 20, text: `⭐ +${pts}`, life: 1.8, shootingStar: true });
+        for (let j = 0; j < 14; j++) {
+          game.particles.push({
+            x:ss.x, y:ss.y,
+            vx:-3+Math.random()*6, vy:-3+Math.random()*6,
+            size:2+Math.random()*3, a:0.6+Math.random()*0.3,
+            color: j%2===0 ? '#ffffff' : '#b0e0ff'
+          });
+        }
+        updateHUD();
+      }
+    }
     for (let i=game.particles.length-1; i>=0; i--) {
       const p=game.particles[i]; p.x+=p.vx*s; p.y+=p.vy*s; p.a-=0.02*s;
       if (p.a<=0) game.particles.splice(i,1);
@@ -722,6 +821,7 @@
       const p=game.popups[i]; p.y-=0.8*s; p.life-=0.025*s;
       if (p.life<=0) game.popups.splice(i,1);
     }
+    game.milestoneFlash = Math.max(0, game.milestoneFlash - 0.04*s);
   }
 
   // ── Draw ──────────────────────────────────────────────────────────────────
@@ -800,12 +900,25 @@
         ctx.strokeStyle=`rgba(255,255,255,${0.12 + danger*0.1})`; ctx.lineWidth=1; ctx.stroke();
         ctx.lineWidth=1;
       } else {
-        const y=groundY()-obs.h;
-        const g=ctx.createLinearGradient(x,y,x,y+obs.h);
-        g.addColorStop(0,'#3dffb0'); g.addColorStop(1,'#00a86b');
-        ctx.fillStyle=g; ctx.fillRect(x,y,obs.w,obs.h);
-        ctx.strokeStyle='rgba(255,255,255,0.22)'; ctx.strokeRect(x+.5,y+.5,obs.w-1,obs.h-1);
-        ctx.fillStyle='rgba(255,255,255,0.18)'; ctx.fillRect(x+1,y+1,obs.w-2,3);
+        const y = groundY() - (obs.floatY || 0) - obs.h;
+        const g = ctx.createLinearGradient(x,y,x,y+obs.h);
+        if (obs.floatY > 0) {
+          // Floating blocks — purple/lavender to distinguish from ground blocks
+          g.addColorStop(0,'#c084fc'); g.addColorStop(1,'#7c3aed');
+          ctx.fillStyle=g; ctx.fillRect(x,y,obs.w,obs.h);
+          ctx.strokeStyle='rgba(255,255,255,0.28)'; ctx.strokeRect(x+.5,y+.5,obs.w-1,obs.h-1);
+          ctx.fillStyle='rgba(255,255,255,0.22)'; ctx.fillRect(x+1,y+1,obs.w-2,3);
+          // subtle glow underneath
+          ctx.shadowColor='rgba(192,132,252,0.4)'; ctx.shadowBlur=10;
+          ctx.fillStyle='rgba(0,0,0,0)'; ctx.fillRect(x,y,obs.w,obs.h);
+          ctx.shadowBlur=0;
+        } else {
+          // Ground blocks — green
+          g.addColorStop(0,'#3dffb0'); g.addColorStop(1,'#00a86b');
+          ctx.fillStyle=g; ctx.fillRect(x,y,obs.w,obs.h);
+          ctx.strokeStyle='rgba(255,255,255,0.22)'; ctx.strokeRect(x+.5,y+.5,obs.w-1,obs.h-1);
+          ctx.fillStyle='rgba(255,255,255,0.18)'; ctx.fillRect(x+1,y+1,obs.w-2,3);
+        }
       }
     }
   }
@@ -829,7 +942,54 @@
     }
   }
 
-  function drawParticles() {
+  function drawShootingStars() {
+    const now = performance.now();
+    for (const ss of game.shootingStars) {
+      if (ss.taken) continue;
+
+      // Draw tail first (gradient trail)
+      for (let i = ss.tail.length - 1; i >= 0; i--) {
+        const pt = ss.tail[i];
+        const frac = 1 - i / ss.tail.length;
+        ctx.globalAlpha = frac * 0.55;
+        ctx.fillStyle = i < 4 ? '#e0f8ff' : '#7ab8d4';
+        const r = (3 + frac * 6);
+        ctx.beginPath();
+        ctx.ellipse(pt.x, pt.y, r * 2.2, r * 0.7, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      // Draw the comet head — white/ice blue, 4-point star shape
+      ctx.save();
+      ctx.translate(ss.x, ss.y);
+      // slight wobble
+      ctx.rotate(Math.sin(now * 0.008 + ss.y) * 0.15);
+      ctx.shadowColor = '#c0f0ff';
+      ctx.shadowBlur = 18;
+      ctx.fillStyle = '#ffffff';
+      // 4-point star
+      ctx.beginPath();
+      for (let i = 0; i < 4; i++) {
+        const a = (Math.PI * 2 * i) / 4 - Math.PI / 4;
+        const ia = a + Math.PI / 4;
+        const ox = Math.cos(a) * 14, oy = Math.sin(a) * 14;
+        if (i === 0) ctx.moveTo(ox, oy); else ctx.lineTo(ox, oy);
+        ctx.lineTo(Math.cos(ia) * 5, Math.sin(ia) * 5);
+      }
+      ctx.closePath();
+      ctx.fill();
+      // Inner bright core
+      ctx.fillStyle = '#e0f8ff';
+      ctx.shadowBlur = 0;
+      ctx.beginPath();
+      ctx.arc(0, 0, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+  }
     for (const p of game.particles) {
       ctx.globalAlpha=Math.max(0,p.a); ctx.fillStyle=p.color;
       ctx.fillRect(p.x,p.y,p.size,p.size);
@@ -840,13 +1000,37 @@
   function drawPopups() {
     ctx.textAlign='center';
     for (const p of game.popups) {
-      const isMilestone = p.text.startsWith('🔥');
-      ctx.font = isMilestone ? '800 22px Inter,sans-serif' : '700 17px Inter,sans-serif';
-      ctx.globalAlpha=Math.min(1, p.life * (isMilestone ? 0.9 : 2));
-      ctx.fillStyle = isMilestone ? C.pink : C.yellow;
-      ctx.shadowColor = isMilestone ? 'rgba(255,79,216,0.7)' : 'rgba(255,216,77,0.7)';
-      ctx.shadowBlur=10;
-      ctx.fillText(p.text,p.x,p.y);
+      if (p.milestone) {
+        // Big centered milestone announcement
+        const fade = Math.min(1, p.life * 1.4);
+        ctx.globalAlpha = fade;
+        ctx.font = '900 58px Inter,sans-serif';
+        ctx.shadowColor = 'rgba(46,230,255,0.9)';
+        ctx.shadowBlur = 32;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(p.text, p.x, p.y);
+        // Second pass — colored glow layer
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = C.cyan;
+        ctx.globalAlpha = fade * 0.45;
+        ctx.fillText(p.text, p.x, p.y);
+      } else if (p.shootingStar) {
+        // Shooting star collect — white/ice, medium size
+        ctx.font = '800 24px Inter,sans-serif';
+        ctx.globalAlpha = Math.min(1, p.life * 1.2);
+        ctx.fillStyle = '#e0f8ff';
+        ctx.shadowColor = 'rgba(192,240,255,0.9)';
+        ctx.shadowBlur = 14;
+        ctx.fillText(p.text, p.x, p.y);
+      } else {
+        // Small star score popup
+        ctx.font = '700 17px Inter,sans-serif';
+        ctx.globalAlpha = Math.min(1, p.life * 2);
+        ctx.fillStyle = C.yellow;
+        ctx.shadowColor = 'rgba(255,216,77,0.7)';
+        ctx.shadowBlur = 8;
+        ctx.fillText(p.text, p.x, p.y);
+      }
     }
     ctx.globalAlpha=1; ctx.shadowBlur=0; ctx.textAlign='left';
   }
@@ -880,14 +1064,21 @@
   }
 
   function drawFlash() {
-    if (game.flash<=0) return;
-    ctx.fillStyle=`rgba(255,255,255,${game.flash})`;
-    ctx.fillRect(0,0,w,h);
+    // Death flash — white
+    if (game.flash > 0) {
+      ctx.fillStyle=`rgba(255,255,255,${game.flash})`;
+      ctx.fillRect(0,0,w,h);
+    }
+    // Milestone flash — cyan pulse, decays quickly, no white tint
+    if (game.milestoneFlash > 0) {
+      ctx.fillStyle=`rgba(46,230,255,${game.milestoneFlash * 0.22})`;
+      ctx.fillRect(0,0,w,h);
+    }
   }
 
   function render() {
     ctx.clearRect(0,0,w,h);
-    drawBg(); drawObstacles(); drawStars(); drawParticles(); drawPopups(); drawPlayer(); drawFlash();
+    drawBg(); drawObstacles(); drawStars(); drawShootingStars(); drawParticles(); drawPopups(); drawPlayer(); drawFlash();
     ctx.restore();
   }
 
