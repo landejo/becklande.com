@@ -16,7 +16,7 @@
     *{box-sizing:border-box;margin:0;padding:0}
     html,body{height:100%;overflow:hidden}
     body{font-family:Inter,system-ui,sans-serif;color:var(--text);background:linear-gradient(180deg,var(--bg2),var(--bg1))}
-    canvas{display:block;width:100vw;height:100vh}
+    #game{display:block;width:100vw;height:100vh}
 
     .hud{position:fixed;top:16px;left:16px;right:16px;display:flex;justify-content:space-between;align-items:center;gap:12px;z-index:10;pointer-events:none}
     .pill{padding:8px 14px;border-radius:999px;background:var(--panel);border:1px solid rgba(255,255,255,0.12);backdrop-filter:blur(12px);font-weight:700;font-size:14px;white-space:nowrap}
@@ -58,6 +58,14 @@
 
     .mobile-jump{position:fixed;bottom:18px;right:18px;width:82px;height:82px;border:0;border-radius:50%;background:radial-gradient(circle at 30% 30%,rgba(255,255,255,0.2),rgba(255,255,255,0.05));color:var(--text);font:inherit;font-weight:900;font-size:12px;z-index:25;box-shadow:0 16px 34px rgba(0,0,0,0.3);backdrop-filter:blur(8px);display:none;cursor:pointer}
     @media(max-width:800px){.mobile-jump{display:block}}
+
+    /* skin selector */
+    .skin-row{display:flex;justify-content:center;gap:10px;margin:12px 0 4px}
+    .skin-btn{background:rgba(255,255,255,0.05);border:2px solid rgba(255,255,255,0.1);border-radius:16px;padding:6px 6px 4px;cursor:pointer;transition:border-color .15s,background .15s;display:flex;flex-direction:column;align-items:center;gap:4px}
+    .skin-btn:hover{background:rgba(255,255,255,0.09);border-color:rgba(255,255,255,0.25)}
+    .skin-btn.selected{border-color:var(--cyan);background:rgba(46,230,255,0.1);box-shadow:0 0 14px rgba(46,230,255,0.2)}
+    .skin-btn canvas{display:block;border-radius:8px}
+    .skin-label{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.04em}
   </style>
 </head>
 <body>
@@ -76,6 +84,8 @@
       <h1 class="gradient">Leo Dash</h1>
       <p class="sub">Run forever. Grab stars. Don't die.</p>
       <p class="sub" style="font-size:11px;margin-top:2px">Stars score more as you speed up. Speed bar shows your danger level.</p>
+      <p class="sub" style="font-size:11px;margin-top:6px;color:var(--cyan);font-weight:700">Choose your character</p>
+      <div class="skin-row" id="skinRow"></div>
       <div class="controls">
         <button class="btn" id="startBtn">Play</button>
         <button class="btn alt" id="lbBtn">🏆 Scores</button>
@@ -168,6 +178,7 @@
   const SPD_MAX   = 11.5;
   const LB_KEY    = 'leoDashScores_v1';
   const BEST_KEY  = 'leoDashBest_v1';
+  const SKIN_KEY  = 'leoDashSkin_v1';
   const CHARS     = ' ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   const NAME_LEN  = 3;
 
@@ -177,6 +188,7 @@
   let audioCtx = null, beatTimer = null, beatStep = 0;
   let score = 0;
   let bestScore = Number(localStorage.getItem(BEST_KEY) || 0);
+  let selectedSkin = localStorage.getItem(SKIN_KEY) || 'leo';
   let spawnCursor = 0;
   let starCursor  = 0;
   let nameChars   = ['A','A','A'];
@@ -1055,30 +1067,205 @@
     ctx.globalAlpha=1; ctx.shadowBlur=0; ctx.textAlign='left';
   }
 
+  // ── Avatar draw functions ─────────────────────────────────────────────────
+  // Each receives ctx already translated to player center and rotated.
+  // phase: -1=crouch/land, 0=run, 1=jump
+
+  function avatarLeo(c, sz) {
+    if (spriteLoaded && leo.naturalWidth > 0) {
+      c.shadowColor='rgba(46,230,255,0.32)'; c.shadowBlur=16;
+      c.drawImage(leo,-sz/2,-sz/2,sz,sz);
+      c.shadowBlur=0;
+    } else {
+      c.fillStyle=C.cyan;
+      c.fillRect(-sz/2,-sz/2,sz,sz);
+    }
+  }
+
+  function avatarMustachio(c, sz, phase, t) {
+    const r = sz * 0.44;
+    // head
+    c.fillStyle='#f5f0e8';
+    c.shadowColor='rgba(255,255,255,0.15)'; c.shadowBlur=8;
+    c.beginPath(); c.arc(0,0,r,0,Math.PI*2); c.fill();
+    c.shadowBlur=0;
+    // eyes
+    c.fillStyle='#1a1008';
+    c.beginPath(); c.arc(-r*0.34,-r*0.2,r*0.13,0,Math.PI*2); c.fill();
+    c.beginPath(); c.arc( r*0.34,-r*0.2,r*0.13,0,Math.PI*2); c.fill();
+    // eyebrows — raise on jump, furrow on crouch
+    const browY = phase === 1 ? -r*0.55 : phase === -1 ? -r*0.42 : -r*0.48;
+    c.strokeStyle='#1a1008'; c.lineWidth=r*0.08; c.lineCap='round';
+    c.beginPath(); c.moveTo(-r*0.55,browY+r*0.06); c.quadraticCurveTo(-r*0.34,browY,-r*0.13,browY+r*0.06); c.stroke();
+    c.beginPath(); c.moveTo( r*0.55,browY+r*0.06); c.quadraticCurveTo( r*0.34,browY, r*0.13,browY+r*0.06); c.stroke();
+    // smile
+    c.beginPath(); c.arc(0,r*0.12,r*0.32,0.2,Math.PI-0.2); c.stroke();
+    // handlebar mustache — wobbles based on phase and t
+    const wobble = phase === 0 ? Math.sin(t * 0.18) * r * 0.08
+                 : phase === 1 ? r * 0.1
+                 : -r * 0.05;
+    c.strokeStyle='#3d2000'; c.lineWidth=r*0.12; c.lineCap='round';
+    // left curl
+    c.beginPath();
+    c.moveTo(-r*0.06, r*0.2 + wobble*0.3);
+    c.bezierCurveTo(-r*0.28,r*0.14+wobble, -r*0.65,r*0.2+wobble, -r*0.72,r*0.06+wobble*0.5);
+    c.bezierCurveTo(-r*0.78,-r*0.06+wobble*0.3, -r*0.58,-r*0.13, -r*0.45,-r*0.04+wobble*0.2);
+    c.stroke();
+    // right curl
+    c.beginPath();
+    c.moveTo( r*0.06, r*0.2 + wobble*0.3);
+    c.bezierCurveTo( r*0.28,r*0.14+wobble,  r*0.65,r*0.2+wobble,  r*0.72,r*0.06+wobble*0.5);
+    c.bezierCurveTo( r*0.78,-r*0.06+wobble*0.3,  r*0.58,-r*0.13,  r*0.45,-r*0.04+wobble*0.2);
+    c.stroke();
+  }
+
+  function avatarGirlypop(c, sz, phase, t) {
+    const r = sz * 0.44;
+    // head — white fill
+    c.fillStyle='#f8f8f8';
+    c.shadowColor='rgba(255,255,255,0.15)'; c.shadowBlur=8;
+    c.beginPath(); c.arc(0,0,r,0,Math.PI*2); c.fill();
+    c.shadowBlur=0;
+    // eyes with lashes
+    c.fillStyle='#2d0a18';
+    c.beginPath(); c.arc(-r*0.34,-r*0.2,r*0.15,0,Math.PI*2); c.fill();
+    c.beginPath(); c.arc( r*0.34,-r*0.2,r*0.15,0,Math.PI*2); c.fill();
+    c.strokeStyle='#2d0a18'; c.lineWidth=r*0.07; c.lineCap='round';
+    // lashes left eye
+    [[-0.52,-0.4],[-0.38,-0.46],[-0.26,-0.42]].forEach(([lx,ly])=>{
+      c.beginPath(); c.moveTo(lx*r+r*0.14,ly*r+r*0.14); c.lineTo(lx*r,ly*r); c.stroke();
+    });
+    // lashes right eye
+    [[0.52,-0.4],[0.38,-0.46],[0.26,-0.42]].forEach(([lx,ly])=>{
+      c.beginPath(); c.moveTo(lx*r-r*0.14,ly*r+r*0.14); c.lineTo(lx*r,ly*r); c.stroke();
+    });
+    // rosy cheeks
+    c.fillStyle='rgba(255,100,140,0.18)';
+    c.beginPath(); c.ellipse(-r*0.62,r*0.12,r*0.28,r*0.17,0,0,Math.PI*2); c.fill();
+    c.beginPath(); c.ellipse( r*0.62,r*0.12,r*0.28,r*0.17,0,0,Math.PI*2); c.fill();
+    // smile
+    c.strokeStyle='#2d0a18'; c.lineWidth=r*0.07;
+    c.beginPath(); c.arc(0,r*0.14,r*0.32,0.2,Math.PI-0.2); c.stroke();
+    // pink bow — bobbles on phase/t
+    const bobble = phase === 1 ? -r*0.18
+                 : phase === -1 ? r*0.08
+                 : Math.sin(t*0.14)*r*0.1;
+    c.save();
+    c.translate(0, -r + bobble);
+    c.fillStyle='#ff4fa0';
+    // left loop
+    c.beginPath(); c.moveTo(0,0);
+    c.bezierCurveTo(-r*0.14,-r*0.28,-r*0.55,-r*0.34,-r*0.48,-r*0.14);
+    c.bezierCurveTo(-r*0.4,r*0.06,-r*0.12,r*0.06,0,0); c.fill();
+    // right loop
+    c.beginPath(); c.moveTo(0,0);
+    c.bezierCurveTo(r*0.14,-r*0.28,r*0.55,-r*0.34,r*0.48,-r*0.14);
+    c.bezierCurveTo(r*0.4,r*0.06,r*0.12,r*0.06,0,0); c.fill();
+    // knot
+    c.fillStyle='#ff80c0';
+    c.beginPath(); c.arc(0,0,r*0.13,0,Math.PI*2); c.fill();
+    // tails
+    c.fillStyle='#ff4fa0';
+    c.beginPath(); c.moveTo(-r*0.06,0); c.lineTo(-r*0.26,r*0.32); c.lineTo(-r*0.12,r*0.32); c.lineTo(0,r*0.06); c.fill();
+    c.beginPath(); c.moveTo( r*0.06,0); c.lineTo( r*0.26,r*0.32); c.lineTo( r*0.12,r*0.32); c.lineTo(0,r*0.06); c.fill();
+    c.restore();
+  }
+
+  function avatarFrogger(c, sz, phase, t) {
+    const green='#4ddfc0', dark='#1a9e82';
+    const r = sz * 0.44;
+    const extend = phase === 1 ? 1 : phase === -1 ? 0 : (Math.sin(t*0.18)+1)*0.15;
+    const crouch  = phase === -1 ? 1 : 0;
+
+    // back legs
+    const legY = r*0.62 + extend*r*0.62 - crouch*r*0.14;
+    const legX = r*0.55 + extend*r*0.55 - crouch*r*0.2;
+    const tAngle = extend*0.5 - crouch*0.3;
+    c.fillStyle=dark;
+    c.beginPath(); c.ellipse(-r*0.46,r*0.48-crouch*r*0.07,r*0.24,r*0.17,-0.5-tAngle,0,Math.PI*2); c.fill();
+    c.beginPath(); c.ellipse( r*0.46,r*0.48-crouch*r*0.07,r*0.24,r*0.17, 0.5+tAngle,0,Math.PI*2); c.fill();
+    // feet
+    c.fillStyle=green;
+    c.beginPath(); c.ellipse(-legX,legY,r*0.38,r*0.17,-0.15,0,Math.PI*2); c.fill();
+    c.beginPath(); c.ellipse( legX,legY,r*0.38,r*0.17, 0.15,0,Math.PI*2); c.fill();
+    // toe bumps
+    c.fillStyle=dark;
+    [-0.48,-0.34,-0.2].forEach(dx=>{ c.beginPath(); c.arc(dx*r-legX+r*0.34,legY-r*0.07,r*0.075,0,Math.PI*2); c.fill(); });
+    [0.48,0.34,0.2].forEach(dx=>{ c.beginPath(); c.arc(dx*r+legX-r*0.34,legY-r*0.07,r*0.075,0,Math.PI*2); c.fill(); });
+    // arms
+    c.fillStyle=dark;
+    const armX=r*0.76+extend*r*0.14, armY=r*0.06-extend*r*0.14+crouch*r*0.1;
+    c.beginPath(); c.ellipse(-armX,armY,r*0.17,r*0.1,-0.6+extend*0.4,0,Math.PI*2); c.fill();
+    c.beginPath(); c.ellipse( armX,armY,r*0.17,r*0.1, 0.6-extend*0.4,0,Math.PI*2); c.fill();
+    // body
+    const bsx=1-extend*0.06+crouch*0.08, bsy=1+extend*0.12-crouch*0.1;
+    c.fillStyle=green;
+    c.shadowColor='rgba(77,223,192,0.4)'; c.shadowBlur=10;
+    c.beginPath(); c.ellipse(0,r*0.14,r*0.9*bsx,r*0.76*bsy,0,0,Math.PI*2); c.fill();
+    c.shadowBlur=0;
+    // back stripe
+    c.fillStyle=dark; c.globalAlpha=0.25;
+    c.beginPath(); c.ellipse(0,r*0.1,r*0.18,r*0.62*bsy,0,0,Math.PI*2); c.fill();
+    c.globalAlpha=1;
+    // belly
+    c.fillStyle='rgba(255,255,255,0.2)';
+    c.beginPath(); c.ellipse(0,r*0.28*bsy,r*0.55*bsx,r*0.45*bsy,0,0,Math.PI*2); c.fill();
+    // eye stalks
+    const eyeRaise=extend*r*0.07;
+    c.fillStyle=dark;
+    c.beginPath(); c.ellipse(-r*0.42,-r*0.55-eyeRaise,r*0.28,r*0.17,0,0,Math.PI*2); c.fill();
+    c.beginPath(); c.ellipse( r*0.42,-r*0.55-eyeRaise,r*0.28,r*0.17,0,0,Math.PI*2); c.fill();
+    // eyeballs
+    c.fillStyle='#e8fff8';
+    c.beginPath(); c.arc(-r*0.42,-r*0.69-eyeRaise,r*0.31,0,Math.PI*2); c.fill();
+    c.beginPath(); c.arc( r*0.42,-r*0.69-eyeRaise,r*0.31,0,Math.PI*2); c.fill();
+    c.fillStyle='#1a3d35';
+    c.beginPath(); c.arc(-r*0.42,-r*0.69-eyeRaise,r*0.2,0,Math.PI*2); c.fill();
+    c.beginPath(); c.arc( r*0.42,-r*0.69-eyeRaise,r*0.2,0,Math.PI*2); c.fill();
+    c.fillStyle='#051a14';
+    c.beginPath(); c.arc(-r*0.38,-r*0.72-eyeRaise,r*0.1,0,Math.PI*2); c.fill();
+    c.beginPath(); c.arc( r*0.46,-r*0.72-eyeRaise,r*0.1,0,Math.PI*2); c.fill();
+    c.fillStyle='#fff';
+    c.beginPath(); c.arc(-r*0.34,-r*0.76-eyeRaise,r*0.07,0,Math.PI*2); c.fill();
+    c.beginPath(); c.arc( r*0.5, -r*0.76-eyeRaise,r*0.07,0,Math.PI*2); c.fill();
+    // nostrils
+    c.fillStyle=dark;
+    c.beginPath(); c.arc(-r*0.17,-r*0.14,r*0.085,0,Math.PI*2); c.fill();
+    c.beginPath(); c.arc( r*0.17,-r*0.14,r*0.085,0,Math.PI*2); c.fill();
+    // grin
+    c.strokeStyle=dark; c.lineWidth=r*0.1; c.lineCap='round';
+    c.beginPath(); c.arc(0,r*0.2+crouch*r*0.07,r*0.5+extend*r*0.07,0.12,Math.PI-0.12); c.stroke();
+    // teeth
+    c.fillStyle='#fff';
+    c.fillRect(-r*0.2,r*0.2+crouch*r*0.07,r*0.13,r*0.1);
+    c.fillRect( r*0.07,r*0.2+crouch*r*0.07,r*0.13,r*0.1);
+  }
+
+  // frame counter for animations
+  let avatarTick = 0;
+
   function drawPlayer() {
+    avatarTick++;
     const p = game.player;
-    // coyote time glow — faint arc under feet when coyote frames are active
+    // coyote glow
     if (p.coyote > 0 && !p.onGround) {
-      const alpha = Math.min(0.55, (p.coyote / 9) * 0.55);
-      const footX = p.x, footY = p.y + p.size / 2 + 4;
+      const alpha = Math.min(0.55, (p.coyote/9)*0.55);
       ctx.save();
       ctx.beginPath();
-      ctx.arc(footX, footY, p.size * 0.38, Math.PI * 0.1, Math.PI * 0.9);
-      ctx.strokeStyle = `rgba(61,255,176,${alpha})`;
-      ctx.lineWidth = 3;
-      ctx.shadowColor = '#3dffb0';
-      ctx.shadowBlur = 8;
-      ctx.stroke();
-      ctx.restore();
+      ctx.arc(p.x, p.y+p.size/2+4, p.size*0.38, Math.PI*0.1, Math.PI*0.9);
+      ctx.strokeStyle=`rgba(61,255,176,${alpha})`;
+      ctx.lineWidth=3; ctx.shadowColor='#3dffb0'; ctx.shadowBlur=8;
+      ctx.stroke(); ctx.restore();
     }
+    // determine phase
+    const phase = p.onGround ? (p.vy > 1 ? -1 : 0)
+                             : (p.vy < 0 ? 1 : 0);
     ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rotation);
-    if (spriteLoaded&&leo.naturalWidth>0) {
-      ctx.shadowColor='rgba(46,230,255,0.32)'; ctx.shadowBlur=16;
-      ctx.drawImage(leo,-p.size/2,-p.size/2,p.size,p.size);
-      ctx.shadowBlur=0;
-    } else {
-      ctx.fillStyle=C.cyan;
-      ctx.fillRect(-p.size/2,-p.size/2,p.size,p.size);
+    switch (selectedSkin) {
+      case 'mustachio': avatarMustachio(ctx, p.size, phase, avatarTick); break;
+      case 'girlypop':  avatarGirlypop(ctx,  p.size, phase, avatarTick); break;
+      case 'frogger':   avatarFrogger(ctx,   p.size, phase, avatarTick); break;
+      default:          avatarLeo(ctx, p.size); break;
     }
     ctx.restore();
   }
@@ -1153,6 +1340,62 @@
     startScreen.classList.remove('hidden');
   });
 
+  // ── Skin selector UI ──────────────────────────────────────────────────────
+  const SKINS = [
+    { id:'leo',       label:'Leo'       },
+    { id:'mustachio', label:'Mustachio' },
+    { id:'girlypop',  label:'GirlyPop'  },
+    { id:'frogger',   label:'Frogger'   },
+  ];
+  const THUMB = 72; // thumbnail canvas size
+
+  function renderThumb(id) {
+    const tc = document.createElement('canvas');
+    tc.width = THUMB; tc.height = THUMB;
+    const tx = tc.getContext('2d');
+    tx.clearRect(0,0,THUMB,THUMB);
+    tx.save(); tx.translate(THUMB/2, THUMB/2);
+    switch(id) {
+      case 'mustachio': avatarMustachio(tx, THUMB*0.82, 0, 30); break;
+      case 'girlypop':  avatarGirlypop(tx,  THUMB*0.82, 0, 30); break;
+      case 'frogger':   avatarFrogger(tx,   THUMB*0.78, 0, 30); break;
+      default: // leo
+        if (spriteLoaded && leo.naturalWidth > 0) {
+          const s = THUMB*0.75;
+          tx.shadowColor='rgba(46,230,255,0.32)'; tx.shadowBlur=10;
+          tx.drawImage(leo,-s/2,-s/2,s,s); tx.shadowBlur=0;
+        } else {
+          tx.fillStyle=C.cyan; const s=THUMB*0.75;
+          tx.fillRect(-s/2,-s/2,s,s);
+        }
+    }
+    tx.restore();
+    return tc;
+  }
+
+  function buildSkinRow() {
+    const row = document.getElementById('skinRow');
+    row.innerHTML = '';
+    SKINS.forEach(sk => {
+      const btn = document.createElement('button');
+      btn.className = 'skin-btn' + (selectedSkin === sk.id ? ' selected' : '');
+      btn.dataset.skin = sk.id;
+      const tc = renderThumb(sk.id);
+      const lbl = document.createElement('div');
+      lbl.className = 'skin-label';
+      lbl.textContent = sk.label;
+      btn.appendChild(tc);
+      btn.appendChild(lbl);
+      btn.addEventListener('click', () => {
+        selectedSkin = sk.id;
+        localStorage.setItem(SKIN_KEY, sk.id);
+        document.querySelectorAll('.skin-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+      });
+      row.appendChild(btn);
+    });
+  }
+
   // ── Boot ──────────────────────────────────────────────────────────────────
   resize();
   game.deco=[];
@@ -1160,6 +1403,9 @@
     game.deco.push({x:i*120,y:38+Math.sin(i*.8)*26,size:6+(i%3)*4,color:i%2===0?C.cyan:C.pink});
   }
   bestText.textContent=`Best: ${bestScore.toLocaleString()}`;
+  // Build skin row after sprite may have loaded
+  leo.onload = () => { spriteLoaded = true; buildSkinRow(); };
+  buildSkinRow(); // also build immediately (Leo thumbnail uses fallback if not loaded yet)
   raf=requestAnimationFrame(frame);
 })();
 </script>
