@@ -12,30 +12,30 @@
 html,body{height:100%;margin:0}
 
 body{
-font-family:Inter,system-ui,sans-serif;
-color:var(--text);
-display:flex;align-items:center;justify-content:center;
-background:
-linear-gradient(rgba(255,255,255,0.03) 1px,transparent 1px),
-linear-gradient(90deg,rgba(255,255,255,0.03) 1px,transparent 1px),
-radial-gradient(circle at 30% 30%,rgba(34,197,94,0.05),transparent 40%),
-var(--bg);
-background-size:24px 24px,24px 24px,auto;
+  font-family:Inter,system-ui,sans-serif;
+  color:var(--text);
+  display:flex;align-items:center;justify-content:center;
+  background:
+    linear-gradient(rgba(255,255,255,0.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,0.03) 1px,transparent 1px),
+    radial-gradient(circle at 30% 30%,rgba(34,197,94,0.05),transparent 40%),
+    var(--bg);
+  background-size:24px 24px,24px 24px,auto;
 }
 
 main{text-align:center}
 
 h1{
-margin:0;
-font-size:clamp(3rem,8vw,6rem);
-font-weight:900;
-letter-spacing:-0.04em;
-transition:text-shadow .3s ease, transform .25s ease;
+  margin:0;
+  font-size:clamp(3rem,8vw,6rem);
+  font-weight:900;
+  letter-spacing:-0.04em;
+  transition:text-shadow .3s ease, transform .25s ease;
 }
 
 h1:hover{
-text-shadow:0 0 12px rgba(34,197,94,.25);
-transform:translateY(-1px);
+  text-shadow:0 0 12px rgba(34,197,94,.25);
+  transform:translateY(-1px);
 }
 
 canvas{position:fixed;inset:0;display:none;background:#0a0a0a}
@@ -89,7 +89,7 @@ button{
 <body>
 
 <main>
-<h1 id="title">Beck Lande</h1>
+  <h1 id="title">Beck Lande</h1>
 </main>
 
 <canvas id="game"></canvas>
@@ -101,14 +101,14 @@ button{
 
 <script>
 (() => {
-const titleEl = document.getElementById("title");
+  const titleEl = document.getElementById("title");
   const scoreEl = document.getElementById("score");
   const gameOverEl = document.getElementById("gameover");
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d");
 
-let keyBuffer = "";
-let taps = 0;
+  let keyBuffer = "";
+  let taps = 0;
   let revealed = false;
   let animationId = null;
   let audioCtx = null;
@@ -468,28 +468,24 @@ let taps = 0;
     update();
     render();
     animationId = requestAnimationFrame(loop);
-  function launchGame() {
-    window.location.href = "leodash.html";
-}
+  }
 
-window.addEventListener("keydown", (e) => {
-keyBuffer += e.key.toLowerCase();
+  window.addEventListener("keydown", (e) => {
+    keyBuffer += e.key.toLowerCase();
     if (keyBuffer.includes("leo")) revealGame();
-    if (keyBuffer.includes("leo")) launchGame();
-keyBuffer = keyBuffer.slice(-10);
+    keyBuffer = keyBuffer.slice(-10);
     if (e.code === "Space" || e.code === "ArrowUp") {
       e.preventDefault();
       handleAction();
     }
     if (e.key.toLowerCase() === "r" && state.over) restart();
-});
+  });
 
-titleEl.addEventListener("click", () => {
-taps += 1;
+  titleEl.addEventListener("click", () => {
+    taps += 1;
     if (taps === 3) revealGame();
-    if (taps === 3) launchGame();
-setTimeout(() => { taps = 0; }, 500);
-});
+    setTimeout(() => { taps = 0; }, 500);
+  });
 
   window.addEventListener("touchstart", (e) => {
     if (!revealed) return;
