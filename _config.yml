@@ -1,0 +1,3 @@
+# GitHub Pages: keep the Beck Control Worker source out of the published site.
+exclude:
+  - beck-control

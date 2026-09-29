@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Beck Control">
+<meta name="theme-color" content="#0f172a">
+<title>Beck Control</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --card: #ffffff; --text: #111827; --muted: #6b7280; --line: #e5e7eb;
+    --accent: #2563eb; --accent-text: #ffffff; --ok: #15803d; --warn: #b45309; --bad: #b91c1c;
+    --hw: #7c3aed; --chip: #eef2ff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b1120; --card: #111a2e; --text: #e5e7eb; --muted: #9ca3af; --line: #1f2a44;
+      --accent: #3b82f6; --accent-text: #ffffff; --ok: #4ade80; --warn: #fbbf24; --bad: #f87171;
+      --hw: #a78bfa; --chip: #1e293b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: max(16px, env(safe-area-inset-top)) 16px 40px;
+  }
+  main { max-width: 560px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 4px 0 16px; display: flex; justify-content: space-between; align-items: center; }
+  h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 10px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .state { font-size: 20px; font-weight: 600; }
+  .state.normal { color: var(--ok); }
+  .state.extend { color: var(--accent); }
+  .state.homework { color: var(--hw); }
+  .sub { color: var(--muted); font-size: 14px; margin-top: 4px; }
+  .row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .row + .row { margin-top: 8px; }
+  button {
+    font: inherit; font-weight: 600; border: 0; border-radius: 12px; padding: 14px 8px; cursor: pointer;
+    background: var(--accent); color: var(--accent-text); min-height: 50px;
+  }
+  button.hw { background: var(--hw); }
+  button.ghost { background: var(--chip); color: var(--text); }
+  button.danger { background: var(--bad); }
+  button.small { padding: 8px 12px; min-height: 0; font-size: 14px; }
+  button:disabled { opacity: .5; }
+  .custom { display: flex; gap: 8px; margin-top: 8px; }
+  input[type=number], input[type=password] {
+    font: inherit; flex: 1; min-width: 0; padding: 12px; border-radius: 12px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--text);
+  }
+  .meter { height: 10px; border-radius: 6px; background: var(--chip); overflow: hidden; margin-top: 6px; }
+  .meter > div { height: 100%; background: var(--accent); }
+  ul.rules { list-style: none; margin: 0; padding: 0; }
+  ul.rules li { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
+  ul.rules li:first-child { border-top: 0; }
+  .pill { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--chip); white-space: nowrap; align-self: center; }
+  .pill.active { color: var(--ok); } .pill.paused { color: var(--warn); } .pill.missing { color: var(--bad); }
+  .apple { border-left: 4px solid var(--warn); }
+  .apple p { margin: 6px 0; font-size: 14px; }
+  .log { font-size: 13px; color: var(--muted); max-height: 240px; overflow: auto; }
+  .log div { padding: 4px 0; border-top: 1px solid var(--line); }
+  .log .error { color: var(--bad); } .log .warn { color: var(--warn); }
+  .err { color: var(--bad); font-size: 14px; margin-top: 8px; white-space: pre-wrap; }
+  details summary { cursor: pointer; font-weight: 600; }
+  .setup-rule { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
+  .setup-rule .meta { color: var(--muted); font-size: 12px; word-break: break-all; }
+  .setup-rule label { font-size: 12px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .targets { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0; font-size: 14px; }
+  select { font: inherit; width: 100%; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Beck Control <button id="logout" class="ghost small hidden">Sign out</button></h1>
+
+  <section id="login" class="card hidden">
+    <h2>Sign in</h2>
+    <form id="loginForm" class="custom">
+      <input id="passcode" type="password" autocomplete="current-password" placeholder="Passcode" required>
+      <button type="submit">Go</button>
+    </form>
+    <div id="loginErr" class="err"></div>
+  </section>
+
+  <div id="app" class="hidden">
+    <section class="card">
+      <div id="state" class="state">Loading…</div>
+      <div id="stateSub" class="sub"></div>
+      <div id="usage"></div>
+      <div id="sessionControls" class="row hidden" style="margin-top:12px">
+        <button class="ghost" data-add="15">+15</button>
+        <button class="ghost" data-add="30">+30</button>
+        <button class="danger" id="endNow">End now</button>
+      </div>
+      <div id="err" class="err"></div>
+    </section>
+
+    <section class="card apple hidden" id="appleCard">
+      <h2>Apple Screen Time</h2>
+      <p>This app only changes Firewalla. Beck's iPhone also uses cellular, so Apple Downtime and App Limits still apply.</p>
+      <p><b>Easiest:</b> have Beck tap <i>Ask For More Time</i> on the blocked app, then approve <i>15 minutes</i> or <i>1 hour</i> to match. Apple's approvals expire on their own, so there's nothing to turn back on.</p>
+    </section>
+
+    <section class="card">
+      <h2>Extend (limits off)</h2>
+      <div class="row">
+        <button data-start="extend" data-min="15">15 min</button>
+        <button data-start="extend" data-min="30">30 min</button>
+        <button data-start="extend" data-min="60">1 hour</button>
+      </div>
+      <h2 style="margin-top:16px">Homework (limits off, fun blocked)</h2>
+      <div class="row">
+        <button class="hw" data-start="homework" data-min="30">30 min</button>
+        <button class="hw" data-start="homework" data-min="60">1 hour</button>
+        <button class="hw" data-start="homework" data-min="90">1.5 hours</button>
+      </div>
+      <div class="custom">
+        <input id="customMin" type="number" min="1" max="240" inputmode="numeric" placeholder="Custom minutes">
+        <button class="ghost small" id="customExtend">Extend</button>
+        <button class="ghost small" id="customHomework">Homework</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Firewalla rules</h2>
+      <ul class="rules" id="ruleList"></ul>
+    </section>
+
+    <section class="card">
+      <h2>Activity</h2>
+      <div class="log" id="log"></div>
+    </section>
+
+    <section class="card">
+      <details id="setup">
+        <summary>Setup</summary>
+        <p class="sub">Tick the rules to <b>pause during extensions</b> (the 8:30 bedtime block and the 2.5 h time limit) and the rules to <b>switch on during homework</b>. Homework rules should normally be paused in Firewalla.</p>
+        <div id="setupRules" class="sub">Loading rules…</div>
+        <button id="saveSetup" style="width:100%;margin-top:12px">Save setup</button>
+        <div id="setupErr" class="err"></div>
+
+        <h2 style="margin-top:20px">Create homework blocks</h2>
+        <p class="sub">Creates paused block rules on Firewalla, aimed at the same devices as the rule you pick (use the bedtime rule).</p>
+        <select id="template"></select>
+        <div class="targets" id="targets"></div>
+        <button id="createHw" class="hw" style="width:100%">Create and add to homework</button>
+        <div id="hwErr" class="err"></div>
+      </details>
+    </section>
+  </div>
+</main>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var status = null;
+
+  function api(method, path, data) {
+    return fetch(path, {
+      method: method,
+      headers: data ? { "Content-Type": "application/json" } : {},
+      body: data ? JSON.stringify(data) : undefined,
+      credentials: "same-origin"
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (body) {
+        if (res.status === 401 && path !== "/api/login") { showLogin(); throw new Error("Not signed in"); }
+        if (!res.ok) throw new Error(body.error || ("HTTP " + res.status));
+        return body;
+      });
+    });
+  }
+
+  function showLogin() {
+    $("login").classList.remove("hidden");
+    $("app").classList.add("hidden");
+    $("logout").classList.add("hidden");
+  }
+
+  function showApp() {
+    $("login").classList.add("hidden");
+    $("app").classList.remove("hidden");
+    $("logout").classList.remove("hidden");
+  }
+
+  function fmtTime(ts) {
+    return new Date(ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  }
+
+  function fmtMin(m) {
+    var h = Math.floor(m / 60), r = Math.round(m % 60);
+    return h ? (r ? h + "h " + r + "m" : h + "h") : r + "m";
+  }
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function renderState() {
+    if (!status) return;
+    var s = status.session;
+    var st = $("state"), sub = $("stateSub");
+    st.className = "state " + (s ? s.kind : "normal");
+    if (!s) {
+      st.textContent = "Normal: limits on";
+      sub.textContent = "";
+    } else {
+      var left = Math.max(0, Math.round((s.endsAt - Date.now()) / 60000));
+      st.textContent = (s.kind === "homework" ? "Homework" : "Extension") + " until " + fmtTime(s.endsAt);
+      sub.textContent = s.reverting ? "Restoring limits (retrying)…" : left + " min left, then limits come back on automatically";
+    }
+    $("sessionControls").classList.toggle("hidden", !s);
+    $("appleCard").classList.toggle("hidden", !s);
+  }
+
+  function render() {
+    renderState();
+    var usage = "";
+    status.limits.forEach(function (r) {
+      if (r.timeUsage && r.timeUsage.quota) {
+        var pct = Math.min(100, Math.round(100 * r.timeUsage.used / r.timeUsage.quota));
+        usage += '<div class="sub" style="margin-top:12px">' + esc(r.label) + ": " + fmtMin(r.timeUsage.used) +
+          " of " + fmtMin(r.timeUsage.quota) + ' used</div><div class="meter"><div style="width:' + pct + '%"></div></div>';
+      }
+    });
+    $("usage").innerHTML = usage;
+
+    var items = status.limits.map(function (r) { return [r, "Limit"]; })
+      .concat(status.homework.map(function (r) { return [r, "Homework block"]; }));
+    $("ruleList").innerHTML = items.length ? items.map(function (x) {
+      return "<li><span>" + esc(x[0].label) + '<br><span class="sub">' + x[1] + '</span></span><span class="pill ' +
+        esc(x[0].status) + '">' + esc(x[0].status) + "</span></li>";
+    }).join("") : '<li class="sub">No rules set up yet. Open Setup below.</li>';
+
+    $("log").innerHTML = status.log.map(function (e) {
+      return '<div class="' + esc(e.level) + '">' + new Date(e.ts).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) +
+        " · " + esc(e.message) + "</div>";
+    }).join("") || "<div>Nothing yet.</div>";
+
+    var errs = [];
+    if (status.error) errs.push("Firewalla: " + status.error);
+    if (status.session && status.session.errors && status.session.errors.length) errs = errs.concat(status.session.errors);
+    $("err").textContent = errs.join("\n");
+  }
+
+  function refresh() {
+    return api("GET", "/api/status").then(function (s) {
+      status = s; showApp(); render();
+    }).catch(function (e) { if (e.message !== "Not signed in") $("err").textContent = e.message; });
+  }
+
+  function busy(promise) {
+    var buttons = document.querySelectorAll("button");
+    buttons.forEach(function (b) { b.disabled = true; });
+    $("err").textContent = "";
+    return promise.then(refresh).catch(function (e) { $("err").textContent = e.message; })
+      .then(function () { buttons.forEach(function (b) { b.disabled = false; }); });
+  }
+
+  function start(kind, minutes) {
+    return busy(api("POST", "/api/start", { kind: kind, minutes: minutes }));
+  }
+
+  document.addEventListener("click", function (ev) {
+    var b = ev.target.closest("button");
+    if (!b) return;
+    if (b.dataset.start) start(b.dataset.start, Number(b.dataset.min));
+    if (b.dataset.add) busy(api("POST", "/api/add", { minutes: Number(b.dataset.add) }));
+  });
+
+  $("endNow").onclick = function () {
+    if (confirm("End now and put all limits back?")) busy(api("POST", "/api/end", {}));
+  };
+  $("customExtend").onclick = function () { start("extend", Number($("customMin").value)); };
+  $("customHomework").onclick = function () { start("homework", Number($("customMin").value)); };
+
+  $("loginForm").onsubmit = function (ev) {
+    ev.preventDefault();
+    $("loginErr").textContent = "";
+    api("POST", "/api/login", { passcode: $("passcode").value })
+      .then(function () { $("passcode").value = ""; return refresh(); })
+      .catch(function (e) { $("loginErr").textContent = e.message; });
+  };
+
+  $("logout").onclick = function () { api("POST", "/api/logout", {}).then(showLogin); };
+
+  // Setup
+  var setupData = null;
+  function describeRule(r) {
+    var bits = [r.action, r.status];
+    if (r.scope) bits.push("scope " + r.scope.type + ":" + r.scope.value);
+    if (r.schedule && r.schedule.cronTime) bits.push("cron " + r.schedule.cronTime);
+    bits.push("id " + r.id);
+    return bits.join(" · ");
+  }
+
+  function loadSetup() {
+    $("setupErr").textContent = "";
+    api("GET", "/api/rules").then(function (d) {
+      setupData = d;
+      var lim = d.config.limitRuleIds, hw = d.config.homeworkRuleIds;
+      $("setupRules").innerHTML = d.rules.length ? d.rules.map(function (r) {
+        return '<div class="setup-rule"><div>' + esc(r.label) + '<div class="meta">' + esc(describeRule(r)) + "</div></div>" +
+          '<label><input type="checkbox" data-limit="' + esc(r.id) + '"' + (lim.indexOf(r.id) >= 0 ? " checked" : "") + ">Limit</label>" +
+          '<label><input type="checkbox" data-hw="' + esc(r.id) + '"' + (hw.indexOf(r.id) >= 0 ? " checked" : "") + ">Homework</label></div>";
+      }).join("") : "No rules found on Firewalla.";
+      $("template").innerHTML = '<option value="">Copy devices from rule…</option>' + d.rules.filter(function (r) { return r.scope; })
+        .map(function (r) {
+          return '<option value="' + esc(r.id) + '"' + (lim[0] === r.id ? " selected" : "") + ">" + esc(r.label) + " (" + esc(r.scope.type + ":" + r.scope.value) + ")</option>";
+        }).join("");
+      $("targets").innerHTML = d.homeworkTargets.map(function (t, i) {
+        return '<label><input type="checkbox" value="' + esc(t.type + ":" + t.value) + '"' + (i < 3 ? " checked" : "") + "> " + esc(t.label) + "</label>";
+      }).join("");
+    }).catch(function (e) { $("setupErr").textContent = e.message; });
+  }
+
+  $("setup").addEventListener("toggle", function () { if ($("setup").open) loadSetup(); });
+
+  $("saveSetup").onclick = function () {
+    var ids = function (attr) {
+      return Array.prototype.map.call(document.querySelectorAll("input[data-" + attr + "]:checked"), function (x) { return x.getAttribute("data-" + attr); });
+    };
+    $("setupErr").textContent = "";
+    api("POST", "/api/config", { limitRuleIds: ids("limit"), homeworkRuleIds: ids("hw") })
+      .then(function () { $("setupErr").textContent = "Saved."; return refresh(); })
+      .catch(function (e) { $("setupErr").textContent = e.message; });
+  };
+
+  $("createHw").onclick = function () {
+    var targets = Array.prototype.map.call(document.querySelectorAll("#targets input:checked"), function (x) { return x.value; });
+    $("hwErr").textContent = "";
+    if (!$("template").value) { $("hwErr").textContent = "Pick a rule to copy devices from."; return; }
+    if (!confirm("Create " + targets.length + " block rule(s) on Firewalla? They start paused.")) return;
+    api("POST", "/api/homework-rules", { templateRuleId: $("template").value, targets: targets })
+      .then(function (r) { $("hwErr").textContent = "Created " + r.created.length + " rule(s)."; loadSetup(); refresh(); })
+      .catch(function (e) { $("hwErr").textContent = e.message; });
+  };
+
+  refresh();
+  setInterval(renderState, 15000);
+  // Every 2 min while visible: each refresh is one Firewalla API call (3,000/day budget).
+  setInterval(function () { if (!document.hidden && !$("app").classList.contains("hidden")) refresh(); }, 120000);
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) refresh(); });
+})();
+</script>
+</body>
+</html>

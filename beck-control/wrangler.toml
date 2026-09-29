@@ -1,0 +1,30 @@
+name = "beck-control"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+# Serve src/ui.html as a string import.
+[[rules]]
+type = "Text"
+globs = ["**/*.html"]
+fallthrough = true
+
+[durable_objects]
+bindings = [{ name = "CONTROLLER", class_name = "Controller" }]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Controller"]
+
+# Safety net: every 30 minutes, make sure an active session still has its end timer.
+[triggers]
+crons = ["*/30 * * * *"]
+
+[vars]
+# Your MSP domain, e.g. "yourname.firewalla.net" (not secret).
+MSP_DOMAIN = ""
+
+# Secrets (set with `npx wrangler secret put <NAME>`, never commit them):
+#   MSP_TOKEN       Firewalla MSP personal access token
+#   APP_PASSCODE    passcode for the web page
+#   SESSION_SECRET  long random string used to sign login cookies
+#   API_TOKEN       optional; lets iPhone Shortcuts call the API with "Authorization: Bearer <token>"
