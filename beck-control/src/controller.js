@@ -13,15 +13,15 @@ const LOG_LIMIT = 100;
 const LOGIN_MAX_FAILURES = 5;
 const LOGIN_LOCK_MS = 15 * 60 * 1000;
 
-// Homework block targets the setup screen offers (Firewalla rule target types/values).
+// Block targets the setup screen offers (the first four are pre-ticked) (Firewalla rule target types/values).
 export const HOMEWORK_TARGETS = [
   { type: "category", value: "games", label: "Games (category)" },
   { type: "app", value: "youtube", label: "YouTube" },
   { type: "app", value: "discord", label: "Discord" },
+  { type: "category", value: "video", label: "Video (category)" },
   { type: "app", value: "roblox", label: "Roblox" },
   { type: "app", value: "fortnite", label: "Fortnite" },
   { type: "app", value: "twitch", label: "Twitch" },
-  { type: "category", value: "video", label: "Video (category)" },
   { type: "category", value: "social", label: "Social (category)" },
 ];
 
@@ -119,18 +119,18 @@ export class Controller extends DurableObject {
       if (session) throw new Error("End the current session before changing setup");
       const config = validateConfig(input);
       await this.ctx.storage.put("config", config);
-      await this.log(`Setup saved: ${config.limitRuleIds.length} limit rule(s), ${config.homeworkRuleIds.length} homework block(s)`);
+      await this.log(`Setup saved: ${config.limitRuleIds.length} limit rule(s), ${config.homeworkRuleIds.length} block rule(s)`);
       return config;
     });
   }
 
   start(kind, minutes, by = "web") {
     return this.exclusive(async () => {
-      const mins = validateMinutes(minutes);
+      const mins = validateMinutes(minutes, kind);
       const config = await this.config();
-      if (!config.limitRuleIds.length) throw new Error("Pick the limit rules in Setup first");
-      if (kind === "homework" && !config.homeworkRuleIds.length) {
-        throw new Error("Pick or create the homework block rules in Setup first");
+      if (kind !== "block" && !config.limitRuleIds.length) throw new Error("Pick the limit rules in Setup first");
+      if (kind !== "extend" && !config.homeworkRuleIds.length) {
+        throw new Error("Pick or create the block rules in Setup first");
       }
       const fw = this.fw();
       const current = await this.session();
@@ -163,7 +163,7 @@ export class Controller extends DurableObject {
         await this.ctx.storage.put("session", session);
       }
 
-      const what = kind === "homework" ? "Homework mode" : "Extension";
+      const what = { extend: "Extension", homework: "Homework mode", block: "Fun blocked" }[kind];
       await this.log(`${what} for ${mins} min (by ${by}); ${plan.ops.length} rule change(s)`);
       if (plan.missing.length) await this.log(`Rules not found on Firewalla: ${plan.missing.join(", ")}`, "warn");
       for (const e of session.errors) await this.log(e, "error");
@@ -173,9 +173,9 @@ export class Controller extends DurableObject {
 
   addTime(minutes, by = "web") {
     return this.exclusive(async () => {
-      const mins = validateMinutes(minutes);
       const session = await this.session();
       if (!session) throw new Error("No active session");
+      const mins = validateMinutes(minutes, session.kind);
       session.endsAt = Math.max(session.endsAt, Date.now()) + mins * 60_000;
       await this.ctx.storage.put("session", session);
       await this.ctx.storage.setAlarm(session.endsAt);
@@ -244,7 +244,7 @@ export class Controller extends DurableObject {
 
   // Creates block rules for the chosen targets, scoped like an existing rule (e.g. the
   // bedtime rule, which already targets Beck's devices), then pauses them so they only
-  // switch on during homework mode.
+  // switch on during homework or block-fun sessions.
   createHomeworkRules(templateRuleId, targetValues) {
     return this.exclusive(async () => {
       const session = await this.session();
@@ -266,7 +266,7 @@ export class Controller extends DurableObject {
           ...(template.gid ? { gid: template.gid } : {}),
           scope: template.scope,
           target: { type: t.type, value: t.value },
-          notes: `Beck Control homework block: ${t.label}`,
+          notes: `Beck Control block: ${t.label}`,
         });
         if (!rule?.id) throw new Error(`Firewalla did not return an id for ${t.label}`);
         await fw.pause(rule.id);
@@ -277,7 +277,7 @@ export class Controller extends DurableObject {
         homeworkRuleIds: [...config.homeworkRuleIds, ...created],
       });
       await this.ctx.storage.put("config", next);
-      await this.log(`Created ${created.length} homework block rule(s) (paused)`);
+      await this.log(`Created ${created.length} block rule(s) (paused)`);
       return { created, config: next };
     });
   }

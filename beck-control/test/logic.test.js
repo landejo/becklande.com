@@ -101,3 +101,39 @@ test("labels", () => {
   assert.equal(ruleLabel({ action: "block", target: { type: "app", value: "youtube" } }), "block app youtube");
   assert.equal(ruleLabel(undefined), "(missing rule)");
 });
+
+test("block turns on block rules and leaves limits alone", () => {
+  const plan = planStart({ kind: "block", config, rules: rules() });
+  assert.deepEqual(plan.ops.map((o) => `${o.op}:${o.id}`), ["resume:games", "resume:yt"]);
+  assert.deepEqual(planRevert(plan.changes).map((o) => `${o.op}:${o.id}`), ["pause:games", "pause:yt"]);
+});
+
+test("block works with no limit rules configured", () => {
+  const plan = planStart({ kind: "block", config: { limitRuleIds: [], homeworkRuleIds: ["games"] }, rules: rules() });
+  assert.deepEqual(plan.ops, [{ id: "games", op: "resume" }]);
+});
+
+test("switching extend -> block restores limits now and turns blocks on", () => {
+  const first = planStart({ kind: "extend", config, rules: rules() });
+  const after = rules({ bed: { status: "paused" }, quota: { status: "paused" } });
+  const second = planStart({ kind: "block", config, rules: after, changes: first.changes });
+  assert.deepEqual(second.ops.map((o) => `${o.op}:${o.id}`), ["resume:bed", "resume:quota", "resume:games", "resume:yt"]);
+  assert.deepEqual(second.changes, [
+    { id: "games", did: "resumed" },
+    { id: "yt", did: "resumed" },
+  ]);
+});
+
+test("switching block -> homework keeps the blocks and pauses limits", () => {
+  const first = planStart({ kind: "block", config, rules: rules() });
+  const after = rules({ games: { status: "active" }, yt: { status: "active" } });
+  const second = planStart({ kind: "homework", config, rules: after, changes: first.changes });
+  assert.deepEqual(second.ops.map((o) => `${o.op}:${o.id}`), ["pause:bed", "pause:quota"]);
+  assert.equal(second.changes.length, 4);
+});
+
+test("block sessions may run up to 24 hours; others 4", () => {
+  assert.equal(validateMinutes(900, "block"), 900);
+  assert.throws(() => validateMinutes(900, "extend"));
+  assert.throws(() => validateMinutes(1441, "block"));
+});

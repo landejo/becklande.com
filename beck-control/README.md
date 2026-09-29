@@ -3,7 +3,8 @@
 A one-screen phone app for evening screen-time extensions. One tap changes the right Firewalla rules and **changes them back automatically** when the time is up.
 
 - **Extend 15/30/60 min**: pauses the "limit" rules (the 8:30pm bedtime block and the 2.5 h internet time limit).
-- **Homework 30/60/90 min**: same, plus switches **on** block rules for games, YouTube and Discord.
+- **Homework 30/60/90 min**: same, plus switches **on** the block rules (games, Discord, video, YouTube).
+- **Block fun 30 min / 1 h / 2 h / until 7 am**: switches the block rules on and leaves the limits alone. Use it any time, e.g. homework in the afternoon. Runs up to 24 h, then switches off by itself.
 - **+15 / +30 / End now** while a session is running.
 - Shows the time-limit usage, each rule's live status and an activity log.
 - Apple Screen Time is **not** controlled (Apple has no API for it). The page reminds you to approve Beck's *Ask For More Time* request for the same length; Apple's approvals expire on their own.
@@ -69,10 +70,14 @@ In the MSP portal: **Account Settings → Create New Token**. It needs write acc
 1. Open the URL on your iPhone, sign in, then tap **Share → Add to Home Screen**.
 2. Open **Setup**:
    - Tick **Limit** on the 8:30pm bedtime rule and on the 2.5 h time-limit rule.
-   - Under **Create homework blocks**, pick the bedtime rule as the device source, leave Games/YouTube/Discord ticked, and tap **Create**. This makes paused block rules aimed at the same devices and adds them to Homework.
-     If you already have such rules, tick **Homework** on them instead. They should be paused in Firewalla when not in use.
+   - Under **Create block rules**, pick the bedtime rule as the device source, leave Games/YouTube/Discord/Video ticked, and tap **Create**. This makes paused block rules aimed at the same devices and ticks them as **Block**.
+     If you already have such rules, tick **Block** on them instead. They should be paused in Firewalla when not in use.
    - Tap **Save setup**.
 3. Test with a 15-minute extension. Check that the rules show **paused** in the Firewalla app, then tap **End now** and check that they show **active** again.
+
+### Cellular gap for blocks
+
+Firewalla only sees traffic on the home network. If Beck turns off Wi-Fi, his iPhone reaches YouTube, Discord and games over cellular. To close that gap, turn off cellular data for those apps in iPhone Settings → Cellular, then lock it with Screen Time → Content & Privacy Restrictions → **Cellular Data Changes: Don't Allow**. This is permanent, not per-session.
 
 ### Apple Screen Time side (manual, one step)
 
@@ -88,9 +93,17 @@ This requires `API_TOKEN`. Create a shortcut with **Get Contents of URL**:
 - URL: `https://<your-worker>/api/start`
 - Method: POST
 - Headers: `Authorization: Bearer <API_TOKEN>`, `Content-Type: application/json`
-- Request body (JSON): `kind` = `extend` (or `homework`), `minutes` = `30`
+- Request body (JSON): `kind` = `extend`, `homework` or `block`; `minutes` = `30`
 
-Name it "Give Beck thirty minutes". Other endpoints: `POST /api/add {"minutes":15}`, `POST /api/end {}`, `GET /api/status`.
+Useful ones:
+
+| Shortcut name (Siri phrase) | Body |
+|---|---|
+| Give Beck thirty minutes | `{"kind":"extend","minutes":30}` |
+| Beck homework hour | `{"kind":"homework","minutes":60}` |
+| Block Beck's games | `{"kind":"block","minutes":120}` |
+
+A Shortcut can also be a Home Screen icon, an Apple Watch action or a Personal Automation, e.g. a weekday 3:30pm automation that starts `block` for 90 minutes. Other endpoints: `POST /api/add {"minutes":15}`, `POST /api/end {}` ("Unblock Beck" / "End Beck's extension"), `GET /api/status`.
 
 ## Local development
 

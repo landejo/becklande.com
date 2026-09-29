@@ -1,29 +1,36 @@
 // Pure planning logic, kept free of Workers imports so it can be unit tested with node:test.
 //
-// Two kinds of session:
+// Three kinds of session:
 //   "extend"   – pause the limit rules (bedtime cutoff, daily time limit).
-//   "homework" – same, plus turn ON the homework block rules (games, YouTube, Discord...).
+//   "homework" – same, plus turn ON the block rules (games, YouTube, Discord, video...).
+//   "block"    – turn ON the block rules only; limits stay as they are.
 //
 // A session records only the changes it actually made, so ending it restores exactly
 // what was there before and never touches a rule someone changed by hand.
 
-export const KINDS = ["extend", "homework"];
+export const KINDS = ["extend", "homework", "block"];
 export const MAX_MINUTES = 240;
+// Blocking can safely run longer (e.g. "until tomorrow morning").
+export const MAX_BLOCK_MINUTES = 24 * 60;
+
+const PAUSES_LIMITS = new Set(["extend", "homework"]);
+const BLOCKS_ON = new Set(["homework", "block"]);
 
 export function validateConfig(input) {
   const limitRuleIds = uniqueStrings(input?.limitRuleIds);
   const homeworkRuleIds = uniqueStrings(input?.homeworkRuleIds);
   const overlap = limitRuleIds.filter((id) => homeworkRuleIds.includes(id));
   if (overlap.length) {
-    throw new Error(`A rule can't be both a limit and a homework block: ${overlap.join(", ")}`);
+    throw new Error(`A rule can't be both a limit and a block: ${overlap.join(", ")}`);
   }
   return { limitRuleIds, homeworkRuleIds };
 }
 
-export function validateMinutes(minutes) {
+export function validateMinutes(minutes, kind = "extend") {
+  const max = kind === "block" ? MAX_BLOCK_MINUTES : MAX_MINUTES;
   const n = Number(minutes);
-  if (!Number.isInteger(n) || n < 1 || n > MAX_MINUTES) {
-    throw new Error(`Minutes must be a whole number from 1 to ${MAX_MINUTES}`);
+  if (!Number.isInteger(n) || n < 1 || n > max) {
+    throw new Error(`Minutes must be a whole number from 1 to ${max}`);
   }
   return n;
 }
@@ -39,30 +46,32 @@ export function planStart({ kind, config, rules, changes = [] }) {
   let next = changes.map((c) => ({ ...c }));
   const touched = (id) => next.some((c) => c.id === id);
 
-  for (const id of config.limitRuleIds) {
-    const rule = byId.get(id);
-    if (!rule) { missing.push(id); continue; }
-    if (rule.status !== "paused" && !touched(id)) {
-      ops.push({ id, op: "pause" });
-      next.push({ id, did: "paused" });
-    }
-  }
-
-  for (const id of config.homeworkRuleIds) {
-    const rule = byId.get(id);
-    if (!rule) { missing.push(id); continue; }
-    if (kind === "homework") {
-      if (rule.status === "paused" && !touched(id)) {
-        ops.push({ id, op: "resume" });
-        next.push({ id, did: "resumed" });
+  // wantDid: the change this kind wants on the rule ("paused" limits / "resumed" blocks),
+  // or null when the rule should be back in its original state.
+  const reconcile = (ids, wantDid) => {
+    const [fromStatus, op] = wantDid === "paused" ? ["active", "pause"] : ["paused", "resume"];
+    for (const id of ids) {
+      const rule = byId.get(id);
+      if (!rule) { missing.push(id); continue; }
+      const status = rule.status ?? "active";
+      if (wantDid) {
+        if (status === fromStatus && !touched(id)) {
+          ops.push({ id, op });
+          next.push({ id, did: wantDid });
+        }
+      } else {
+        const mine = next.find((c) => c.id === id);
+        if (mine) {
+          // Switching modes: undo what the previous mode changed on this rule now.
+          ops.push({ id, op: mine.did === "paused" ? "resume" : "pause" });
+          next = next.filter((c) => c.id !== id);
+        }
       }
-    } else if (next.some((c) => c.id === id && c.did === "resumed")) {
-      // Switching homework -> plain extension: put the homework blocks back to paused now.
-      ops.push({ id, op: "pause" });
-      next = next.filter((c) => c.id !== id);
     }
-  }
+  };
 
+  reconcile(config.limitRuleIds, PAUSES_LIMITS.has(kind) ? "paused" : null);
+  reconcile(config.homeworkRuleIds, BLOCKS_ON.has(kind) ? "resumed" : null);
   return { ops, changes: next, missing };
 }
 

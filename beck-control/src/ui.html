@@ -11,13 +11,13 @@
   :root {
     --bg: #f5f6f8; --card: #ffffff; --text: #111827; --muted: #6b7280; --line: #e5e7eb;
     --accent: #2563eb; --accent-text: #ffffff; --ok: #15803d; --warn: #b45309; --bad: #b91c1c;
-    --hw: #7c3aed; --chip: #eef2ff;
+    --hw: #7c3aed; --blk: #c2410c; --chip: #eef2ff;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #0b1120; --card: #111a2e; --text: #e5e7eb; --muted: #9ca3af; --line: #1f2a44;
       --accent: #3b82f6; --accent-text: #ffffff; --ok: #4ade80; --warn: #fbbf24; --bad: #f87171;
-      --hw: #a78bfa; --chip: #1e293b;
+      --hw: #a78bfa; --blk: #fb923c; --chip: #1e293b;
     }
   }
   * { box-sizing: border-box; }
@@ -34,6 +34,7 @@
   .state.normal { color: var(--ok); }
   .state.extend { color: var(--accent); }
   .state.homework { color: var(--hw); }
+  .state.block { color: var(--blk); }
   .sub { color: var(--muted); font-size: 14px; margin-top: 4px; }
   .row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .row + .row { margin-top: 8px; }
@@ -42,11 +43,16 @@
     background: var(--accent); color: var(--accent-text); min-height: 50px;
   }
   button.hw { background: var(--hw); }
+  button.blk { background: var(--blk); }
+  .row.four { grid-template-columns: repeat(2, 1fr); }
   button.ghost { background: var(--chip); color: var(--text); }
   button.danger { background: var(--bad); }
   button.small { padding: 8px 12px; min-height: 0; font-size: 14px; }
   button:disabled { opacity: .5; }
   .custom { display: flex; gap: 8px; margin-top: 8px; }
+  .custom.wrap { flex-wrap: wrap; }
+  .custom.wrap input { flex-basis: 100%; }
+  .custom.wrap button { flex: 1; }
   input[type=number], input[type=password] {
     font: inherit; flex: 1; min-width: 0; padding: 12px; border-radius: 12px; border: 1px solid var(--line);
     background: var(--bg); color: var(--text);
@@ -101,8 +107,14 @@
 
     <section class="card apple hidden" id="appleCard">
       <h2>Apple Screen Time</h2>
-      <p>This app only changes Firewalla. Beck's iPhone also uses cellular, so Apple Downtime and App Limits still apply.</p>
-      <p><b>Easiest:</b> have Beck tap <i>Ask For More Time</i> on the blocked app, then approve <i>15 minutes</i> or <i>1 hour</i> to match. Apple's approvals expire on their own, so there's nothing to turn back on.</p>
+      <div id="appleExtend">
+        <p>This app only changes Firewalla. Beck's iPhone also uses cellular, so Apple Downtime and App Limits still apply.</p>
+        <p><b>Easiest:</b> have Beck tap <i>Ask For More Time</i> on the blocked app, then approve <i>15 minutes</i> or <i>1 hour</i> to match. Apple's approvals expire on their own, so there's nothing to turn back on.</p>
+      </div>
+      <div id="appleBlock">
+        <p>Firewalla blocks only cover Wi-Fi. On cellular, Beck's iPhone can still reach these apps.</p>
+        <p>To close that gap, turn off cellular data for those apps (iPhone Settings → Cellular), then lock it with Screen Time → Content &amp; Privacy → <i>Cellular Data Changes: Don't Allow</i>.</p>
+      </div>
     </section>
 
     <section class="card">
@@ -118,11 +130,23 @@
         <button class="hw" data-start="homework" data-min="60">1 hour</button>
         <button class="hw" data-start="homework" data-min="90">1.5 hours</button>
       </div>
-      <div class="custom">
-        <input id="customMin" type="number" min="1" max="240" inputmode="numeric" placeholder="Custom minutes">
+      <div class="custom wrap">
+        <input id="customMin" type="number" min="1" max="1440" inputmode="numeric" placeholder="Custom minutes">
         <button class="ghost small" id="customExtend">Extend</button>
         <button class="ghost small" id="customHomework">Homework</button>
+        <button class="ghost small" id="customBlock">Block</button>
       </div>
+    </section>
+
+    <section class="card">
+      <h2>Block fun (games, Discord, video, YouTube)</h2>
+      <div class="row four">
+        <button class="blk" data-start="block" data-min="30">30 min</button>
+        <button class="blk" data-start="block" data-min="60">1 hour</button>
+        <button class="blk" data-start="block" data-min="120">2 hours</button>
+        <button class="blk" id="blockMorning">Until 7 am</button>
+      </div>
+      <div class="sub" style="margin-top:8px">Limits stay as they are. The blocks switch off on their own when the time's up.</div>
     </section>
 
     <section class="card">
@@ -138,16 +162,16 @@
     <section class="card">
       <details id="setup">
         <summary>Setup</summary>
-        <p class="sub">Tick the rules to <b>pause during extensions</b> (the 8:30 bedtime block and the 2.5 h time limit) and the rules to <b>switch on during homework</b>. Homework rules should normally be paused in Firewalla.</p>
+        <p class="sub">Tick <b>Limit</b> on the rules to pause during extensions (the 8:30 bedtime block and the 2.5 h time limit). Tick <b>Block</b> on the rules to switch on during homework and block-fun sessions; those should normally be paused in Firewalla.</p>
         <div id="setupRules" class="sub">Loading rules…</div>
         <button id="saveSetup" style="width:100%;margin-top:12px">Save setup</button>
         <div id="setupErr" class="err"></div>
 
-        <h2 style="margin-top:20px">Create homework blocks</h2>
+        <h2 style="margin-top:20px">Create block rules</h2>
         <p class="sub">Creates paused block rules on Firewalla, aimed at the same devices as the rule you pick (use the bedtime rule).</p>
         <select id="template"></select>
         <div class="targets" id="targets"></div>
-        <button id="createHw" class="hw" style="width:100%">Create and add to homework</button>
+        <button id="createHw" class="hw" style="width:100%">Create and add as Block rules</button>
         <div id="hwErr" class="err"></div>
       </details>
     </section>
@@ -211,11 +235,14 @@
       sub.textContent = "";
     } else {
       var left = Math.max(0, Math.round((s.endsAt - Date.now()) / 60000));
-      st.textContent = (s.kind === "homework" ? "Homework" : "Extension") + " until " + fmtTime(s.endsAt);
-      sub.textContent = s.reverting ? "Restoring limits (retrying)…" : left + " min left, then limits come back on automatically";
+      var name = { extend: "Extension", homework: "Homework", block: "Fun blocked" }[s.kind] || s.kind;
+      st.textContent = name + " until " + fmtTime(s.endsAt);
+      sub.textContent = s.reverting ? "Restoring rules (retrying)…" : left + " min left, then everything goes back automatically";
     }
     $("sessionControls").classList.toggle("hidden", !s);
     $("appleCard").classList.toggle("hidden", !s);
+    $("appleExtend").classList.toggle("hidden", !s || s.kind === "block");
+    $("appleBlock").classList.toggle("hidden", !s || s.kind !== "block");
   }
 
   function render() {
@@ -231,7 +258,7 @@
     $("usage").innerHTML = usage;
 
     var items = status.limits.map(function (r) { return [r, "Limit"]; })
-      .concat(status.homework.map(function (r) { return [r, "Homework block"]; }));
+      .concat(status.homework.map(function (r) { return [r, "Block"]; }));
     $("ruleList").innerHTML = items.length ? items.map(function (x) {
       return "<li><span>" + esc(x[0].label) + '<br><span class="sub">' + x[1] + '</span></span><span class="pill ' +
         esc(x[0].status) + '">' + esc(x[0].status) + "</span></li>";
@@ -274,10 +301,17 @@
   });
 
   $("endNow").onclick = function () {
-    if (confirm("End now and put all limits back?")) busy(api("POST", "/api/end", {}));
+    if (confirm("End now and put everything back?")) busy(api("POST", "/api/end", {}));
   };
   $("customExtend").onclick = function () { start("extend", Number($("customMin").value)); };
   $("customHomework").onclick = function () { start("homework", Number($("customMin").value)); };
+  $("customBlock").onclick = function () { start("block", Number($("customMin").value)); };
+  $("blockMorning").onclick = function () {
+    var now = new Date(), until = new Date(now);
+    until.setHours(7, 0, 0, 0);
+    if (until <= now) until.setDate(until.getDate() + 1);
+    start("block", Math.ceil((until - now) / 60000));
+  };
 
   $("loginForm").onsubmit = function (ev) {
     ev.preventDefault();
@@ -307,14 +341,14 @@
       $("setupRules").innerHTML = d.rules.length ? d.rules.map(function (r) {
         return '<div class="setup-rule"><div>' + esc(r.label) + '<div class="meta">' + esc(describeRule(r)) + "</div></div>" +
           '<label><input type="checkbox" data-limit="' + esc(r.id) + '"' + (lim.indexOf(r.id) >= 0 ? " checked" : "") + ">Limit</label>" +
-          '<label><input type="checkbox" data-hw="' + esc(r.id) + '"' + (hw.indexOf(r.id) >= 0 ? " checked" : "") + ">Homework</label></div>";
+          '<label><input type="checkbox" data-hw="' + esc(r.id) + '"' + (hw.indexOf(r.id) >= 0 ? " checked" : "") + ">Block</label></div>";
       }).join("") : "No rules found on Firewalla.";
       $("template").innerHTML = '<option value="">Copy devices from rule…</option>' + d.rules.filter(function (r) { return r.scope; })
         .map(function (r) {
           return '<option value="' + esc(r.id) + '"' + (lim[0] === r.id ? " selected" : "") + ">" + esc(r.label) + " (" + esc(r.scope.type + ":" + r.scope.value) + ")</option>";
         }).join("");
       $("targets").innerHTML = d.homeworkTargets.map(function (t, i) {
-        return '<label><input type="checkbox" value="' + esc(t.type + ":" + t.value) + '"' + (i < 3 ? " checked" : "") + "> " + esc(t.label) + "</label>";
+        return '<label><input type="checkbox" value="' + esc(t.type + ":" + t.value) + '"' + (i < 4 ? " checked" : "") + "> " + esc(t.label) + "</label>";
       }).join("");
     }).catch(function (e) { $("setupErr").textContent = e.message; });
   }
