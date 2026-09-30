@@ -69,6 +69,7 @@
   .mode-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 32px; font-weight: 700; letter-spacing: -.025em; line-height: 1.15; color: var(--mode); margin: 0 0 4px; }
   .mode-title .dot { width: 10px; height: 10px; background: var(--mode); box-shadow: 0 0 0 5px color-mix(in srgb, var(--mode) 22%, transparent); margin-right: 5px; }
   .big { font-size: 22px; font-weight: 600; letter-spacing: -.01em; margin: 2px 0; }
+  .big .until { color: var(--muted); font-weight: 500; }
   .hero .controls button[data-add] { background: var(--surface); }
   .track { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; margin-top: 12px; }
   .track > div { height: 100%; border-radius: 3px; background: var(--mode, var(--muted)); transition: width .4s ease; }
@@ -350,14 +351,12 @@
       $("stateSub").textContent = "Bedtime and the daily limit are on.";
     } else {
       var left = Math.max(0, Math.round((s.endsAt - Date.now()) / 60000));
-      var until = fmtTime(s.endsAt);
-      var what = {
-        extend: "Bedtime and the daily limit are paused until " + until + ".",
-        homework: "Limits are paused and fun is blocked until " + until + ".",
-        block: "Fun is blocked until " + until + ". Limits stay on."
-      }[s.kind] || "";
-      $("state").textContent = fmtMin(left) + " left";
-      $("stateSub").textContent = s.reverting ? "Restoring rules (retrying)…" : what + " Then everything goes back automatically.";
+      $("state").innerHTML = fmtMin(left) + ' left <span class="until">· until ' + esc(fmtTime(s.endsAt)) + "</span>";
+      $("stateSub").textContent = s.reverting ? "Restoring rules (retrying)…" : ({
+        extend: "Bedtime & daily limit paused",
+        homework: "Limits off, fun blocked",
+        block: "Limits stay on"
+      }[s.kind] || "");
       if (s.startedAt && s.endsAt > s.startedAt) {
         var pct = Math.max(0, Math.min(100, 100 * (s.endsAt - Date.now()) / (s.endsAt - s.startedAt)));
         $("progress").firstElementChild.style.width = pct + "%";
