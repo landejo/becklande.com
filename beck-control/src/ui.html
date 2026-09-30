@@ -46,8 +46,8 @@
   main { max-width: 480px; margin: 0 auto; }
   .num { font-variant-numeric: tabular-nums; }
 
-  header { display: flex; justify-content: space-between; align-items: center; margin: 8px 0 20px; }
-  h1 { font-size: 28px; font-weight: 700; letter-spacing: -.02em; margin: 0; }
+  header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 8px 0 20px; }
+  h1 { font-size: clamp(22px, 7vw, 28px); font-weight: 700; letter-spacing: -.02em; margin: 0; }
   .label { font-size: 13px; font-weight: 500; color: var(--muted); margin: 24px 4px 8px; }
   .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
   .sub { color: var(--muted); font-size: 14px; }
@@ -59,14 +59,14 @@
   }
   button:active { transform: scale(.97); }
   button:disabled { opacity: .45; }
-  .head-actions { display: flex; align-items: center; gap: 16px; }
+  .head-actions { display: flex; align-items: center; gap: 14px; flex: none; }
   .link { background: none; min-height: 0; padding: 6px 0; color: var(--muted); font-weight: 500; font-size: 15px; }
 
   /* Status */
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex: none; }
   .normal { --mode: var(--ok); } .extend { --mode: var(--extend); } .homework { --mode: var(--homework); } .block { --mode: var(--block); }
   .hero { --hero-bg: color-mix(in srgb, var(--mode) 9%, var(--surface)); background: var(--hero-bg); border: 1.5px solid color-mix(in srgb, var(--mode) 55%, transparent); }
-  .mode-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 32px; font-weight: 700; letter-spacing: -.025em; line-height: 1.15; color: var(--mode); margin: 0 0 4px; }
+  .mode-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: clamp(26px, 8vw, 32px); font-weight: 700; letter-spacing: -.025em; line-height: 1.15; color: var(--mode); margin: 0 0 4px; }
   .mode-title .dot { width: 10px; height: 10px; background: var(--mode); box-shadow: 0 0 0 5px color-mix(in srgb, var(--mode) 22%, transparent); margin-right: 5px; }
   .big { font-size: 22px; font-weight: 600; letter-spacing: -.01em; margin: 2px 0; }
   .big .until { color: var(--muted); font-weight: 500; }
@@ -85,8 +85,9 @@
     position: absolute; inset: 0; width: auto; border-radius: 0;
     background: repeating-linear-gradient(to right, transparent 0 calc(var(--step) - 2px), var(--hero-bg) calc(var(--step) - 2px) var(--step));
   }
-  .controls { display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 8px; margin-top: 16px; }
-  .controls button { white-space: nowrap; padding: 0 8px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .controls button { flex: 1 1 auto; white-space: nowrap; padding: 0 12px; }
+  .controls #endNow { flex-grow: 2; }
   button.danger { background: color-mix(in srgb, var(--bad) 14%, var(--surface)); color: var(--bad); }
   button.armed { background: var(--bad); color: #fff; }
   .hero button.to-normal { background: color-mix(in srgb, var(--ok) 16%, var(--surface)); color: var(--ok); }
@@ -94,10 +95,10 @@
 
   /* Start */
   .mode + .mode { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
-  .mode-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+  .mode-head { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; row-gap: 2px; margin-bottom: 10px; }
   .mode-head .dot { background: var(--mode); align-self: center; }
-  .mode-head b { font-weight: 600; }
-  .mode-head .sub { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mode-head b { font-weight: 600; white-space: nowrap; }
+  .mode-head .sub { font-size: 13px; }
   .times { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
   .times button {
     background: color-mix(in srgb, var(--mode) 12%, var(--surface)); color: var(--mode);
@@ -110,7 +111,7 @@
   details.custom[open] summary::after { transform: rotate(90deg); }
   .custom-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 12px; }
   .custom-row select { grid-column: 1 / -1; margin-top: 0; }
-  .custom-row button { font-size: 14px; }
+  .custom-row button { font-size: 14px; padding: 0 4px; }
   .custom-row .extend, .custom-row .homework, .custom-row .block { color: var(--mode); }
   input[type=number], input[type=password] {
     font: inherit; width: 100%; min-width: 0; min-height: 44px; padding: 0 12px; border-radius: 12px;
