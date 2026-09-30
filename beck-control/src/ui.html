@@ -66,14 +66,13 @@
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex: none; }
   .normal { --mode: var(--ok); } .extend { --mode: var(--extend); } .homework { --mode: var(--homework); } .block { --mode: var(--block); }
   .hero { --hero-bg: color-mix(in srgb, var(--mode) 9%, var(--surface)); background: var(--hero-bg); border: 1.5px solid color-mix(in srgb, var(--mode) 55%, transparent); }
-  .eyebrow { font-size: 12px; font-weight: 600; color: var(--muted); }
-  .mode-title { display: flex; align-items: center; gap: 10px; font-size: 32px; font-weight: 700; letter-spacing: -.025em; line-height: 1.15; color: var(--mode); margin: 2px 0 4px; }
-  .mode-title .dot { width: 10px; height: 10px; background: var(--mode); }
+  .mode-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 32px; font-weight: 700; letter-spacing: -.025em; line-height: 1.15; color: var(--mode); margin: 0 0 4px; }
+  .mode-title .dot { width: 10px; height: 10px; background: var(--mode); box-shadow: 0 0 0 5px color-mix(in srgb, var(--mode) 22%, transparent); margin-right: 5px; }
   .big { font-size: 22px; font-weight: 600; letter-spacing: -.01em; margin: 2px 0; }
   .hero .controls button[data-add] { background: var(--surface); }
   .track { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; margin-top: 12px; }
   .track > div { height: 100%; border-radius: 3px; background: var(--mode, var(--muted)); transition: width .4s ease; }
-  .usage { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .usage { margin-top: 14px; padding-top: 12px; border-top: 1px solid color-mix(in srgb, var(--mode) 28%, transparent); }
   .usage-row { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
   .usage-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .usage-row b { font-weight: 600; white-space: nowrap; }
@@ -185,8 +184,7 @@
 
   <div id="app" class="hidden">
     <section id="statusCard" class="card hero normal">
-      <div class="eyebrow">Current mode</div>
-      <div class="mode-title"><i class="dot"></i><span id="stateLabel">Loading…</span></div>
+      <div class="mode-title"><span id="stateLabel">Loading…</span><i class="dot" aria-hidden="true"></i></div>
       <div id="state" class="big num hidden"></div>
       <div id="stateSub" class="sub"></div>
       <div id="progress" class="track hidden"><div></div></div>
