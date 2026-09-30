@@ -2,8 +2,8 @@
 
 A one-screen phone app for evening screen-time extensions. One tap changes the right Firewalla rules and **changes them back automatically** when the time is up.
 
-- **Extend 15/30/60 min**: pauses the "limit" rules (the 8:30pm bedtime block and the 2.5 h internet time limit).
-- **Homework 30/60/90 min**: same, plus switches **on** the block rules (games, Discord, video, YouTube).
+- **Extend 5/15/30/60 min**: pauses the "limit" rules (the 8:30pm bedtime block and the 2.5 h internet time limit).
+- **Homework 5/15/30/60 min**: same, plus switches **on** the block rules (games, Discord, video, YouTube).
 - **Block fun 30 min / 1 h / 2 h / until 7 am**: switches the block rules on and leaves the limits alone. Use it any time, e.g. homework in the afternoon. Runs up to 24 h, then switches off by itself.
 - **+15 / +30 / End now** while a session is running.
 - Shows the time-limit usage, each rule's live status and an activity log.

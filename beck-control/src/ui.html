@@ -119,16 +119,18 @@
 
     <section class="card">
       <h2>Extend (limits off)</h2>
-      <div class="row">
+      <div class="row four">
+        <button data-start="extend" data-min="5">5 min</button>
         <button data-start="extend" data-min="15">15 min</button>
         <button data-start="extend" data-min="30">30 min</button>
         <button data-start="extend" data-min="60">1 hour</button>
       </div>
       <h2 style="margin-top:16px">Homework (limits off, fun blocked)</h2>
-      <div class="row">
+      <div class="row four">
+        <button class="hw" data-start="homework" data-min="5">5 min</button>
+        <button class="hw" data-start="homework" data-min="15">15 min</button>
         <button class="hw" data-start="homework" data-min="30">30 min</button>
         <button class="hw" data-start="homework" data-min="60">1 hour</button>
-        <button class="hw" data-start="homework" data-min="90">1.5 hours</button>
       </div>
       <div class="custom wrap">
         <input id="customMin" type="number" min="1" max="1440" inputmode="numeric" placeholder="Custom minutes">
