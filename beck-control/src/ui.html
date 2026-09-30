@@ -58,7 +58,7 @@
   .mode-title { display: flex; align-items: center; gap: 10px; font-size: 32px; font-weight: 700; letter-spacing: -.025em; line-height: 1.15; color: var(--mode); margin: 2px 0 4px; }
   .mode-title .dot { width: 10px; height: 10px; background: var(--mode); }
   .big { font-size: 22px; font-weight: 600; letter-spacing: -.01em; margin: 2px 0; }
-  .hero .controls button:not(.danger):not(.armed) { background: var(--surface); }
+  .hero .controls button[data-add] { background: var(--surface); }
   .track { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; margin-top: 12px; }
   .track > div { height: 100%; border-radius: 3px; background: var(--mode, var(--muted)); transition: width .4s ease; }
   .usage { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
@@ -66,9 +66,12 @@
   .usage-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .usage-row b { font-weight: 600; white-space: nowrap; }
   .usage .track > div { background: var(--text); opacity: .7; }
-  .controls { display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 8px; margin-top: 16px; }
+  .controls { display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 8px; margin-top: 16px; }
+  .controls button { white-space: nowrap; padding: 0 8px; }
   button.danger { background: color-mix(in srgb, var(--bad) 14%, var(--surface)); color: var(--bad); }
   button.armed { background: var(--bad); color: #fff; }
+  .hero button.to-normal { background: color-mix(in srgb, var(--ok) 16%, var(--surface)); color: var(--ok); }
+  .hero button.to-normal.armed { background: var(--ok); color: var(--surface); }
 
   /* Start */
   .mode + .mode { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
@@ -168,7 +171,7 @@
       <div id="sessionControls" class="controls hidden">
         <button data-add="15">+15 min</button>
         <button data-add="30">+30 min</button>
-        <button class="danger" id="endNow">End now</button>
+        <button class="to-normal" id="endNow">Back to normal</button>
       </div>
       <div id="usage"></div>
       <div id="err" class="err"></div>
@@ -312,7 +315,7 @@
       return;
     }
     btn.dataset.label = btn.textContent;
-    btn.classList.add("armed"); btn.textContent = "Tap again to confirm";
+    btn.classList.add("armed"); btn.textContent = "Tap to confirm";
     btn._t = setTimeout(function () { btn.classList.remove("armed"); btn.textContent = btn.dataset.label; }, 4000);
   }
 

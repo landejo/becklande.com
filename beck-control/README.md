@@ -5,7 +5,7 @@ A one-screen phone app for evening screen-time extensions. One tap changes the r
 - **Limits off 5/15/30/60 min** (API kind `extend`): pauses the "limit" rules (the 8:30pm bedtime block and the 2.5 h internet time limit).
 - **Homework mode 5/15/30/60 min**: same, plus switches **on** the block rules (games, Discord, video, YouTube).
 - **Block fun 30 min / 1 h / 2 h / until 7 am**: switches the block rules on and leaves the limits alone. Use it any time, e.g. homework in the afternoon. Runs up to 24 h, then switches off by itself.
-- **+15 / +30 / End now** while a session is running.
+- **+15 / +30 / Back to normal** while a session is running.
 - Shows the time-limit usage, each rule's live status and an activity log.
 - Apple Screen Time is **not** controlled (Apple has no API for it). The page reminds you to approve Beck's *Ask For More Time* request for the same length; Apple's approvals expire on their own.
 
@@ -73,7 +73,7 @@ In the MSP portal: **MSP Settings → MSP API → Create New Token**. It needs w
    - Under **Create block rules**, pick the bedtime rule as the device source, leave Games/YouTube/Discord/Video ticked, and tap **Create**. This makes paused block rules aimed at the same devices and ticks them as **Block**.
      If you already have such rules, tick **Block** on them instead. They should be paused in Firewalla when not in use.
    - Tap **Save setup**.
-3. Test with a 15-minute extension. Check that the rules show **paused** in the Firewalla app, then tap **End now** and check that they show **active** again.
+3. Test with 15 minutes of Limits off. Check that the rules show **paused** in the Firewalla app, then tap **Back to normal** (twice to confirm) and check that they show **active** again.
 
 ### Cellular gap for blocks
 
