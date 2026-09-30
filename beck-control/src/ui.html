@@ -379,7 +379,7 @@
         var q = r.timeUsage.quota, used = r.timeUsage.used;
         var pct = Math.min(100, Math.round(100 * used / q));
         usage += '<div class="usage"><div class="usage-row"><span class="sub">Internet usage</span><b class="num">' +
-          fmtMin(used) + " / " + fmtMin(q) + ' <span class="unit">limit</span></b></div><div class="track"><div class="fill' + (used >= q ? " full" : "") +
+          fmtMin(used) + ' <span class="unit">of</span> ' + fmtMin(q) + '</b></div><div class="track"><div class="fill' + (used >= q ? " full" : "") +
           '" style="width:' + pct + '%"></div><div class="ticks" style="--step:' + (1500 / q) + '%"></div></div></div>';
       }
     });
