@@ -1,5 +1,6 @@
 import { Controller } from "./controller.js";
 import PAGE from "./ui.html";
+import ICON from "./apple-touch-icon.png";
 
 export { Controller };
 
@@ -20,6 +21,9 @@ export default {
             "Referrer-Policy": "no-referrer",
           },
         });
+      }
+      if (request.method === "GET" && url.pathname === "/apple-touch-icon.png") {
+        return new Response(ICON, { headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" } });
       }
       if (url.pathname.startsWith("/api/")) return await api(request, env, url);
       return new Response("Not found", { status: 404 });

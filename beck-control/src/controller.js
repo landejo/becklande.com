@@ -1,6 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import { Firewalla } from "./firewalla.js";
 import {
+  formatMinutes,
   planRevert,
   planStart,
   ruleLabel,
@@ -116,10 +117,10 @@ export class Controller extends DurableObject {
   saveConfig(input) {
     return this.exclusive(async () => {
       const session = await this.session();
-      if (session) throw new Error("End the current session before changing setup");
+      if (session) throw new Error("Go back to normal before changing settings");
       const config = validateConfig(input);
       await this.ctx.storage.put("config", config);
-      await this.log(`Setup saved: ${config.limitRuleIds.length} limit rule(s), ${config.homeworkRuleIds.length} block rule(s)`);
+      await this.log(`Settings saved · ${config.limitRuleIds.length} limit, ${config.homeworkRuleIds.length} block rules`);
       return config;
     });
   }
@@ -128,9 +129,9 @@ export class Controller extends DurableObject {
     return this.exclusive(async () => {
       const mins = validateMinutes(minutes, kind);
       const config = await this.config();
-      if (kind !== "block" && !config.limitRuleIds.length) throw new Error("Pick the limit rules in Setup first");
+      if (kind !== "block" && !config.limitRuleIds.length) throw new Error("Pick the limit rules in Settings first");
       if (kind !== "extend" && !config.homeworkRuleIds.length) {
-        throw new Error("Pick or create the block rules in Setup first");
+        throw new Error("Pick or create the block rules in Settings first");
       }
       const fw = this.fw();
       const current = await this.session();
@@ -164,7 +165,7 @@ export class Controller extends DurableObject {
       }
 
       const what = { extend: "Limits off", homework: "Homework mode", block: "Fun blocked" }[kind];
-      await this.log(`${what} for ${mins} min (by ${by}); ${plan.ops.length} rule change(s)`);
+      await this.log(`${what} · ${formatMinutes(mins)}${via(by)}`);
       if (plan.missing.length) await this.log(`Rules not found on Firewalla: ${plan.missing.join(", ")}`, "warn");
       for (const e of session.errors) await this.log(e, "error");
       return session;
@@ -179,13 +180,13 @@ export class Controller extends DurableObject {
       session.endsAt = Math.max(session.endsAt, Date.now()) + mins * 60_000;
       await this.ctx.storage.put("session", session);
       await this.ctx.storage.setAlarm(session.endsAt);
-      await this.log(`Added ${mins} min (by ${by})`);
+      await this.log(`Added ${formatMinutes(mins)}${via(by)}`);
       return session;
     });
   }
 
   end(by = "web") {
-    return this.exclusive(() => this.revert(`Ended early (by ${by})`));
+    return this.exclusive(() => this.revert(`Back to normal${via(by)}`));
   }
 
   async alarm() {
@@ -196,7 +197,7 @@ export class Controller extends DurableObject {
         await this.ctx.storage.setAlarm(session.endsAt);
         return;
       }
-      await this.revert("Time's up; limits restored");
+      await this.revert("Time's up · back to normal");
     });
   }
 
@@ -248,7 +249,7 @@ export class Controller extends DurableObject {
   createHomeworkRules(templateRuleId, targetValues) {
     return this.exclusive(async () => {
       const session = await this.session();
-      if (session) throw new Error("End the current session before changing setup");
+      if (session) throw new Error("Go back to normal before changing settings");
       const fw = this.fw();
       const rules = await fw.listRules();
       const template = rules.find((r) => r.id === templateRuleId);
@@ -277,7 +278,7 @@ export class Controller extends DurableObject {
         homeworkRuleIds: [...config.homeworkRuleIds, ...created],
       });
       await this.ctx.storage.put("config", next);
-      await this.log(`Created ${created.length} block rule(s) (paused)`);
+      await this.log(`Created ${created.length} block rules`);
       return { created, config: next };
     });
   }
@@ -302,4 +303,9 @@ export class Controller extends DurableObject {
     }
     await this.ctx.storage.put("login", s);
   }
+}
+
+// Activity-log suffix: only calls from iPhone Shortcuts are called out.
+function via(by) {
+  return by === "shortcut" ? " (Shortcut)" : "";
 }

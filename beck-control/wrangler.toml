@@ -8,6 +8,12 @@ type = "Text"
 globs = ["**/*.html"]
 fallthrough = true
 
+# Home-screen icon, served as bytes.
+[[rules]]
+type = "Data"
+globs = ["**/*.png"]
+fallthrough = true
+
 [durable_objects]
 bindings = [{ name = "CONTROLLER", class_name = "Controller" }]
 

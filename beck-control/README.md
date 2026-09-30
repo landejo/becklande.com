@@ -1,4 +1,4 @@
-# Beck Control
+# Beck Mission Control
 
 A one-screen phone app for evening screen-time extensions. One tap changes the right Firewalla rules and **changes them back automatically** when the time is up.
 
@@ -68,11 +68,11 @@ In the MSP portal: **MSP Settings → MSP API → Create New Token**. It needs w
 ### 3. First run
 
 1. Open the URL on your iPhone, sign in, then tap **Share → Add to Home Screen**.
-2. Open **Setup**:
+2. Open **Settings** (bottom of the page):
    - Tick **Limit** on the 8:30pm bedtime rule and on the 2.5 h time-limit rule.
    - Under **Create block rules**, pick the bedtime rule as the device source, leave Games/YouTube/Discord/Video ticked, and tap **Create**. This makes paused block rules aimed at the same devices and ticks them as **Block**.
      If you already have such rules, tick **Block** on them instead. They should be paused in Firewalla when not in use.
-   - Tap **Save setup**.
+   - Tap **Save rules**.
 3. Test with 15 minutes of Limits off. Check that the rules show **paused** in the Firewalla app, then tap **Back to normal** (twice to confirm) and check that they show **active** again.
 
 ### Cellular gap for blocks

@@ -5,10 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Beck Control">
+<meta name="apple-mobile-web-app-title" content="Mission Control">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <meta name="theme-color" content="#f6f6f4" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0c0c0d" media="(prefers-color-scheme: dark)">
-<title>Beck Control</title>
+<title>Beck Mission Control</title>
 <script>try { var t = localStorage.getItem("theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <style>
   :root {
@@ -47,7 +48,7 @@
   .num { font-variant-numeric: tabular-nums; }
 
   header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 8px 0 20px; }
-  h1 { font-size: clamp(22px, 7vw, 28px); font-weight: 700; letter-spacing: -.02em; margin: 0; }
+  h1 { font-size: clamp(20px, 6.4vw, 26px); font-weight: 700; letter-spacing: -.02em; margin: 0; }
   .label { font-size: 13px; font-weight: 500; color: var(--muted); margin: 24px 4px 8px; }
   .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
   .sub { color: var(--muted); font-size: 14px; }
@@ -102,6 +103,16 @@
   .mode-head b { font-weight: 600; white-space: nowrap; }
   .mode-head .sub { font-size: 13px; }
   .times { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .times.wide-last { grid-template-columns: 1fr 1fr 1fr 1.4fr; }
+  .mode-head .running { margin-left: auto; align-self: center; font-size: 12px; font-weight: 600; color: var(--mode);
+    background: color-mix(in srgb, var(--mode) 14%, var(--surface)); padding: 2px 8px; border-radius: 999px; }
+  .mode.current .mode-head .sub { display: none; }
+  .toast {
+    position: fixed; left: 50%; bottom: max(24px, env(safe-area-inset-bottom)); transform: translate(-50%, 12px);
+    background: var(--text); color: var(--bg); font-size: 15px; font-weight: 600; padding: 10px 16px; border-radius: 999px;
+    opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease; white-space: nowrap; z-index: 10;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
   .times button {
     background: color-mix(in srgb, var(--mode) 12%, var(--surface)); color: var(--mode);
     font-size: 15px; padding: 0 4px; min-height: 48px; white-space: nowrap;
@@ -136,6 +147,16 @@
   .log li.sub { display: block; }
   .log time { color: var(--faint); font-size: 13px; white-space: nowrap; }
   .log .warn { color: var(--warn); } .log .error { color: var(--bad); }
+  .more { display: block; width: 100%; text-align: center; padding: 10px 0 12px; border-top: 1px solid var(--line); border-radius: 0; }
+  details.rules > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; font-size: 15px; font-weight: 600; }
+  details.rules > summary::-webkit-details-marker { display: none; }
+  details.rules > summary::after { content: "›"; color: var(--muted); transition: transform .15s ease; }
+  details.rules[open] > summary::after { transform: rotate(90deg); }
+  details.rules[open] > summary { border-bottom: 1px solid var(--line); }
+  .rules-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+  .rules-summary span { display: inline-flex; align-items: center; gap: 6px; }
+  .list li.group { font-size: 12px; font-weight: 600; color: var(--muted); padding: 12px 0 4px; }
+  .on-off { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; color: var(--muted); white-space: nowrap; }
 
   details.note { padding: 14px 16px; }
   details.note summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; gap: 12px; font-size: 15px; font-weight: 600; }
@@ -144,6 +165,7 @@
   details.note[open] summary::after { transform: rotate(90deg); }
   .note p { margin: 8px 0 0; font-size: 14px; color: var(--muted); }
   .note p b, .note p i { color: var(--text); }
+  .note .link { font-size: 14px; }
   .err { color: var(--bad); font-size: 14px; margin-top: 10px; white-space: pre-wrap; }
   .err:empty { display: none; }
 
@@ -157,6 +179,8 @@
   details#setup > summary::after { content: "›"; color: var(--muted); transition: transform .15s ease; }
   details#setup[open] > summary::after { transform: rotate(90deg); }
   details#setup h3 { font-size: 15px; margin: 24px 0 4px; }
+  details#setup h3:first-of-type { margin-top: 16px; }
+  .quiet { background: var(--surface-2); color: var(--text); }
   .setup-rule { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); font-size: 14px; }
   .setup-rule .meta { color: var(--faint); font-size: 12px; word-break: break-all; }
   .setup-rule label { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 4px; }
@@ -170,10 +194,9 @@
 <body>
 <main>
   <header>
-    <h1>Beck Control</h1>
+    <h1>Beck Mission Control</h1>
     <div class="head-actions">
       <button id="theme" class="link" aria-label="Appearance"></button>
-      <button id="logout" class="link hidden">Sign out</button>
     </div>
   </header>
 
@@ -206,18 +229,20 @@
         <summary>Screen Time on Beck's iPhone still applies</summary>
         <p>This only changes Firewalla. On cellular, Apple Downtime and App Limits still apply.</p>
         <p>Have Beck tap <i>Ask For More Time</i>, then approve <b>15 minutes</b> or <b>1 hour</b> to match. Apple's approvals expire on their own.</p>
+        <p><button class="link" data-dismiss="appleExtend">Don't show again</button></p>
       </details>
       <details class="card note" id="appleBlock">
         <summary>Blocks only work on home Wi-Fi</summary>
         <p>On cellular, Beck's iPhone can still reach these apps.</p>
         <p>To close that gap, turn off cellular data for those apps (Settings → Cellular), then lock it with Screen Time → Content &amp; Privacy → <i>Cellular Data Changes: Don't Allow</i>.</p>
+        <p><button class="link" data-dismiss="appleBlock">Don't show again</button></p>
       </details>
     </div>
 
     <div class="label">Change mode</div>
     <section class="card">
-      <div class="mode extend">
-        <div class="mode-head"><i class="dot"></i><b>Limits off</b><span class="sub">Bedtime &amp; daily limit paused</span></div>
+      <div class="mode extend" data-mode="extend">
+        <div class="mode-head"><i class="dot"></i><b>Limits off</b><span class="sub">Bedtime &amp; daily limit paused</span><span class="running hidden">Running</span></div>
         <div class="times">
           <button data-start="extend" data-min="5">5 min</button>
           <button data-start="extend" data-min="15">15 min</button>
@@ -225,8 +250,8 @@
           <button data-start="extend" data-min="60">1 hr</button>
         </div>
       </div>
-      <div class="mode homework">
-        <div class="mode-head"><i class="dot"></i><b>Homework mode</b><span class="sub">Limits off, fun blocked</span></div>
+      <div class="mode homework" data-mode="homework">
+        <div class="mode-head"><i class="dot"></i><b>Homework mode</b><span class="sub">Limits off, fun blocked</span><span class="running hidden">Running</span></div>
         <div class="times">
           <button data-start="homework" data-min="5">5 min</button>
           <button data-start="homework" data-min="15">15 min</button>
@@ -234,13 +259,13 @@
           <button data-start="homework" data-min="60">1 hr</button>
         </div>
       </div>
-      <div class="mode block">
-        <div class="mode-head"><i class="dot"></i><b>Block fun</b><span class="sub">Games, video, social &amp; more</span></div>
-        <div class="times">
+      <div class="mode block" data-mode="block">
+        <div class="mode-head"><i class="dot"></i><b>Block fun</b><span class="sub">Games, video, social &amp; more</span><span class="running hidden">Running</span></div>
+        <div class="times wide-last">
           <button data-start="block" data-min="30">30 min</button>
           <button data-start="block" data-min="60">1 hr</button>
           <button data-start="block" data-min="120">2 hr</button>
-          <button id="blockMorning">7 am</button>
+          <button id="blockMorning">Until 7 am</button>
         </div>
       </div>
       <details class="custom">
@@ -256,21 +281,26 @@
 
     <div class="label">Firewalla rules</div>
     <section class="card" style="padding:0">
-      <ul class="list" id="ruleList"></ul>
+      <details class="rules">
+        <summary><span class="rules-summary" id="rulesSummary"></span></summary>
+        <ul class="list" id="ruleList"></ul>
+      </details>
     </section>
 
     <div class="label">Activity</div>
     <section class="card" style="padding:0">
       <ul class="list log" id="log"></ul>
+      <button class="link more hidden" id="logMore">Show more</button>
     </section>
 
     <div class="label">&nbsp;</div>
     <section class="card">
       <details id="setup">
-        <summary>Setup</summary>
+        <summary>Settings</summary>
+        <h3>Rules</h3>
         <p class="sub">Tick <b>Limit</b> on the rules to pause during Limits off and Homework mode (the 8:30 bedtime block and the daily time limit). Tick <b>Block</b> on the rules to switch on during homework and block-fun sessions; those should normally be paused in Firewalla.</p>
         <div id="setupRules" class="sub">Loading rules…</div>
-        <button id="saveSetup" class="primary full">Save setup</button>
+        <button id="saveSetup" class="primary full">Save rules</button>
         <div id="setupErr" class="err"></div>
 
         <h3>Create block rules</h3>
@@ -279,10 +309,18 @@
         <div class="targets" id="targets"></div>
         <button id="createHw" class="full">Create and add as Block rules</button>
         <div id="hwErr" class="err"></div>
+
+        <h3>iPhone tips</h3>
+        <p class="sub">Bring back the Screen Time and Wi-Fi notes if you hid them.</p>
+        <button id="showTips" class="quiet full">Show tips again</button>
+
+        <h3>Account</h3>
+        <button id="logout" class="quiet full">Sign out</button>
       </details>
     </section>
   </div>
 </main>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script>
 (function () {
@@ -307,13 +345,11 @@
   function showLogin() {
     $("login").classList.remove("hidden");
     $("app").classList.add("hidden");
-    $("logout").classList.add("hidden");
   }
 
   function showApp() {
     $("login").classList.add("hidden");
     $("app").classList.remove("hidden");
-    $("logout").classList.remove("hidden");
   }
 
   function fmtTime(ts) {
@@ -329,6 +365,23 @@
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
+  }
+
+  var MODE_NAMES = { extend: "Limits off", homework: "Homework mode", block: "Fun blocked" };
+  var toastTimer;
+  function toast(msg) {
+    var t = $("toast");
+    t.textContent = msg; t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove("show"); }, 2500);
+  }
+
+  // Tips hidden with "Don't show again" (per device).
+  function hiddenTips() {
+    try { return JSON.parse(localStorage.getItem("hiddenTips") || "[]"); } catch (e) { return []; }
+  }
+  function setHiddenTips(list) {
+    try { localStorage.setItem("hiddenTips", JSON.stringify(list)); } catch (e) {}
   }
 
   // Two-tap confirm instead of confirm(): native dialogs look out of place in a home-screen app.
@@ -348,7 +401,7 @@
     var s = status.session;
     var kind = s ? s.kind : "normal";
     $("statusCard").className = "card hero " + kind;
-    $("stateLabel").textContent = { normal: "Normal mode", extend: "Limits off", homework: "Homework mode", block: "Fun blocked" }[kind] || kind;
+    $("stateLabel").textContent = kind === "normal" ? "Normal mode" : (MODE_NAMES[kind] || kind);
     $("state").classList.toggle("hidden", !s);
     if (!s) {
       $("stateSub").textContent = "Bedtime and the daily limit are on.";
@@ -367,9 +420,34 @@
     }
     $("progress").classList.toggle("hidden", !s || !s.startedAt);
     $("sessionControls").classList.toggle("hidden", !s);
-    $("appleCard").classList.toggle("hidden", !s);
-    $("appleExtend").classList.toggle("hidden", !s || s.kind === "block");
-    $("appleBlock").classList.toggle("hidden", !s || s.kind !== "block");
+    var hidden = hiddenTips();
+    var showExtend = !!s && s.kind !== "block" && hidden.indexOf("appleExtend") < 0;
+    var showBlock = !!s && s.kind === "block" && hidden.indexOf("appleBlock") < 0;
+    $("appleCard").classList.toggle("hidden", !showExtend && !showBlock);
+    $("appleExtend").classList.toggle("hidden", !showExtend);
+    $("appleBlock").classList.toggle("hidden", !showBlock);
+    document.querySelectorAll(".mode[data-mode]").forEach(function (m) {
+      var current = !!s && s.kind === m.dataset.mode;
+      m.classList.toggle("current", current);
+      m.querySelector(".running").classList.toggle("hidden", !current);
+    });
+  }
+
+  var logAll = false;
+
+  // One line for the rules card: are the limits on, are the blocks on?
+  function rulesSummary() {
+    function part(rules, words, onColor, offColor) {
+      if (!rules.length) return "";
+      var on = rules.filter(function (r) { return r.status === "active"; }).length;
+      var missing = rules.some(function (r) { return r.status !== "active" && r.status !== "paused"; });
+      var text = missing ? words[3] : on === rules.length ? words[0] : on === 0 ? words[1] : words[2];
+      var color = missing ? "var(--bad)" : on === 0 ? offColor : onColor;
+      return '<span><i class="dot" style="background:' + color + '"></i>' + text + "</span>";
+    }
+    var html = part(status.limits, ["Limits on", "Limits off", "Some limits off", "Limit rule missing"], "var(--ok)", "var(--extend)") +
+      part(status.homework, ["Blocks on", "Blocks off", "Some blocks on", "Block rule missing"], "var(--block)", "var(--faint)");
+    return html || '<span class="sub">No rules set up yet</span>';
   }
 
   function render() {
@@ -379,7 +457,8 @@
       if (r.timeUsage && r.timeUsage.quota) {
         var q = r.timeUsage.quota, used = r.timeUsage.used;
         var pct = Math.min(100, Math.round(100 * used / q));
-        var left = used >= q ? '<span class="reached">Limit reached</span>' : fmtMin(q - used) + " left";
+        var left = used > q ? '<span class="reached">' + fmtMin(used - q) + " over</span>"
+          : used === q ? '<span class="reached">Limit reached</span>' : fmtMin(q - used) + " left";
         usage += '<div class="usage"><div class="usage-row"><span class="sub">Internet usage</span><b class="num">' +
           left + ' <span class="unit">(of ' + fmtMin(q) + ')</span></b></div><div class="track"><div class="fill' + (used >= q ? " full" : "") +
           '" style="width:' + pct + '%"></div><div class="ticks" style="--step:' + (1500 / q) + '%"></div></div></div>';
@@ -387,14 +466,21 @@
     });
     $("usage").innerHTML = usage;
 
-    var items = status.limits.map(function (r) { return [r, "Limit"]; })
-      .concat(status.homework.map(function (r) { return [r, "Block"]; }));
-    $("ruleList").innerHTML = items.length ? items.map(function (x) {
-      return "<li><span>" + esc(x[0].label) + '<span class="role">' + x[1] + '</span></span><span class="state-tag ' +
-        esc(x[0].status) + '"><i class="dot"></i>' + esc(x[0].status) + "</span></li>";
-    }).join("") : '<li class="sub">No rules set up yet. Open Setup below.</li>';
+    $("rulesSummary").innerHTML = rulesSummary();
+    function row(r, onColor) {
+      var st = r.status === "active" ? ["On", onColor] : r.status === "paused" ? ["Off", "var(--faint)"] : ["Missing", "var(--bad)"];
+      return "<li><span>" + esc(String(r.label).replace(/^Beck Control block:\s*/, "")) + '</span><span class="on-off"><i class="dot" style="background:' +
+        st[1] + '"></i>' + st[0] + "</span></li>";
+    }
+    var list = "";
+    if (status.limits.length) list += '<li class="group">Limits</li>' + status.limits.map(function (r) { return row(r, "var(--ok)"); }).join("");
+    if (status.homework.length) list += '<li class="group">Blocks</li>' + status.homework.map(function (r) { return row(r, "var(--block)"); }).join("");
+    $("ruleList").innerHTML = list || '<li class="sub">No rules set up yet. Open Settings below.</li>';
 
-    $("log").innerHTML = status.log.map(function (e) {
+    var entries = logAll ? status.log : status.log.slice(0, 5);
+    $("logMore").classList.toggle("hidden", status.log.length <= 5);
+    $("logMore").textContent = logAll ? "Show less" : "Show more";
+    $("log").innerHTML = entries.map(function (e) {
       var d = new Date(e.ts), today = d.toDateString() === new Date().toDateString();
       return '<li class="' + esc(e.level) + '"><time class="num" title="' + esc(d.toLocaleString()) + '">' +
         (today ? fmtTime(e.ts) : d.toLocaleDateString([], { month: "short", day: "numeric" })) +
@@ -422,18 +508,25 @@
   }
 
   function start(kind, minutes) {
-    return busy(api("POST", "/api/start", { kind: kind, minutes: minutes }));
+    return busy(api("POST", "/api/start", { kind: kind, minutes: minutes })
+      .then(function () { toast((MODE_NAMES[kind] || kind) + " · " + fmtMin(minutes)); }));
   }
 
   document.addEventListener("click", function (ev) {
     var b = ev.target.closest("button");
     if (!b) return;
     if (b.dataset.start) start(b.dataset.start, Number(b.dataset.min));
-    if (b.dataset.add) busy(api("POST", "/api/add", { minutes: Number(b.dataset.add) }));
+    if (b.dataset.add) busy(api("POST", "/api/add", { minutes: Number(b.dataset.add) })
+      .then(function () { toast("Added " + b.dataset.add + " min"); }));
+    if (b.dataset.dismiss) {
+      var list = hiddenTips();
+      if (list.indexOf(b.dataset.dismiss) < 0) list.push(b.dataset.dismiss);
+      setHiddenTips(list); renderState(); toast("Tip hidden");
+    }
   });
 
   $("endNow").onclick = function () {
-    confirmTap(this, function () { busy(api("POST", "/api/end", {})); });
+    confirmTap(this, function () { busy(api("POST", "/api/end", {}).then(function () { toast("Back to normal"); })); });
   };
   // Custom length: a picker (iOS shows its wheel) instead of a keyboard.
   (function () {
@@ -468,6 +561,8 @@
   };
 
   $("logout").onclick = function () { api("POST", "/api/logout", {}).then(showLogin); };
+  $("showTips").onclick = function () { setHiddenTips([]); renderState(); toast("Tips will show again"); };
+  $("logMore").onclick = function () { logAll = !logAll; render(); };
 
   // Appearance switch: Auto (follow the device) → Light → Dark. Remembered per device.
   var themeLabels = { auto: "◐ Auto", light: "☀︎ Light", dark: "☾ Dark" };
