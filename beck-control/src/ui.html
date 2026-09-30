@@ -109,7 +109,7 @@
   details.custom summary::after { content: "›"; display: inline-block; margin-left: 6px; transition: transform .15s ease; }
   details.custom[open] summary::after { transform: rotate(90deg); }
   .custom-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 12px; }
-  .custom-row input { grid-column: 1 / -1; }
+  .custom-row select { grid-column: 1 / -1; margin-top: 0; }
   .custom-row button { font-size: 14px; }
   .custom-row .extend, .custom-row .homework, .custom-row .block { color: var(--mode); }
   input[type=number], input[type=password] {
@@ -244,7 +244,7 @@
       <details class="custom">
         <summary>Custom length</summary>
         <div class="custom-row">
-          <input id="customMin" class="num" type="number" min="1" max="1440" inputmode="numeric" placeholder="Minutes">
+          <select id="customMin" class="num" aria-label="Length"></select>
           <button class="extend" id="customExtend">Limits off</button>
           <button class="homework" id="customHomework">Homework</button>
           <button class="block" id="customBlock">Block fun</button>
@@ -434,6 +434,20 @@
   $("endNow").onclick = function () {
     confirmTap(this, function () { busy(api("POST", "/api/end", {})); });
   };
+  // Custom length: a picker (iOS shows its wheel) instead of a keyboard.
+  (function () {
+    function label(m) {
+      var h = Math.floor(m / 60), r = m % 60;
+      return h ? h + " hr" + (r ? " " + r + " min" : "") : m + " min";
+    }
+    function opt(m) { return '<option value="' + m + '"' + (m === 45 ? " selected" : "") + ">" + label(m) + "</option>"; }
+    var html = "", m;
+    for (m = 5; m <= 60; m += 5) html += opt(m);
+    for (m = 75; m <= 240; m += 15) html += opt(m);
+    html += '<optgroup label="Block fun only">';
+    for (m = 300; m <= 720; m += 60) html += opt(m);
+    $("customMin").innerHTML = html + "</optgroup>";
+  })();
   $("customExtend").onclick = function () { start("extend", Number($("customMin").value)); };
   $("customHomework").onclick = function () { start("homework", Number($("customMin").value)); };
   $("customBlock").onclick = function () { start("block", Number($("customMin").value)); };
