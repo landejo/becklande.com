@@ -5,7 +5,7 @@ compatibility_date = "2026-09-01"
 # Serve src/ui.html as a string import.
 [[rules]]
 type = "Text"
-globs = ["**/*.html"]
+globs = ["**/*.html", "**/*.svg"]
 fallthrough = true
 
 # Home-screen icon, served as bytes.

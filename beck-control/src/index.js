@@ -1,6 +1,8 @@
 import { Controller } from "./controller.js";
 import PAGE from "./ui.html";
 import ICON from "./apple-touch-icon.png";
+import FAVICON_PNG from "./favicon-32.png";
+import FAVICON_SVG from "./favicon.svg";
 
 export { Controller };
 
@@ -22,8 +24,16 @@ export default {
           },
         });
       }
-      if (request.method === "GET" && url.pathname === "/apple-touch-icon.png") {
-        return new Response(ICON, { headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" } });
+      // Icons: home screen, browser tabs and bookmarks.
+      const icons = {
+        "/apple-touch-icon.png": [ICON, "image/png"],
+        "/favicon.svg": [FAVICON_SVG, "image/svg+xml"],
+        "/favicon-32.png": [FAVICON_PNG, "image/png"],
+        "/favicon.ico": [FAVICON_PNG, "image/png"],
+      };
+      if (request.method === "GET" && icons[url.pathname]) {
+        const [body, type] = icons[url.pathname];
+        return new Response(body, { headers: { "Content-Type": type, "Cache-Control": "public, max-age=86400" } });
       }
       if (url.pathname.startsWith("/api/")) return await api(request, env, url);
       return new Response("Not found", { status: 404 });
