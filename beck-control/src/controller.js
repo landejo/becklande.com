@@ -163,7 +163,7 @@ export class Controller extends DurableObject {
         await this.ctx.storage.put("session", session);
       }
 
-      const what = { extend: "Extension", homework: "Homework mode", block: "Fun blocked" }[kind];
+      const what = { extend: "Limits off", homework: "Homework mode", block: "Fun blocked" }[kind];
       await this.log(`${what} for ${mins} min (by ${by}); ${plan.ops.length} rule change(s)`);
       if (plan.missing.length) await this.log(`Rules not found on Firewalla: ${plan.missing.join(", ")}`, "warn");
       for (const e of session.errors) await this.log(e, "error");

@@ -13,7 +13,7 @@
   :root {
     --bg: #f6f6f4; --surface: #ffffff; --surface-2: #f0f0ed; --text: #18181b; --muted: #71717a; --faint: #a1a1aa;
     --line: rgba(0, 0, 0, .07);
-    --extend: #3b6ef5; --homework: #7c5cff; --block: #e0662b;
+    --extend: #b86e00; --homework: #7c5cff; --block: #dc2626;
     --ok: #16a34a; --warn: #c2750c; --bad: #dc2626;
     --radius: 16px;
   }
@@ -21,7 +21,7 @@
     :root {
       --bg: #0c0c0d; --surface: #161618; --surface-2: #202023; --text: #f4f4f5; --muted: #a1a1aa; --faint: #6b6b73;
       --line: rgba(255, 255, 255, .07);
-      --extend: #7596ff; --homework: #a68fff; --block: #ff8a4c;
+      --extend: #f5b041; --homework: #a68fff; --block: #f87171;
       --ok: #4ade80; --warn: #f5b041; --bad: #f87171;
     }
   }
@@ -51,12 +51,14 @@
   .link { background: none; min-height: 0; padding: 6px 0; color: var(--muted); font-weight: 500; font-size: 15px; }
 
   /* Status */
-  .status-top { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex: none; }
   .normal { --mode: var(--ok); } .extend { --mode: var(--extend); } .homework { --mode: var(--homework); } .block { --mode: var(--block); }
-  .status-top .dot { background: var(--mode); }
-  .status-top span { color: var(--mode); }
-  .big { font-size: 40px; font-weight: 700; letter-spacing: -.03em; line-height: 1.1; margin: 10px 0 2px; }
+  .hero { background: color-mix(in srgb, var(--mode) 9%, var(--surface)); border: 1.5px solid color-mix(in srgb, var(--mode) 55%, transparent); }
+  .eyebrow { font-size: 12px; font-weight: 600; color: var(--muted); }
+  .mode-title { display: flex; align-items: center; gap: 10px; font-size: 32px; font-weight: 700; letter-spacing: -.025em; line-height: 1.15; color: var(--mode); margin: 2px 0 4px; }
+  .mode-title .dot { width: 10px; height: 10px; background: var(--mode); }
+  .big { font-size: 22px; font-weight: 600; letter-spacing: -.01em; margin: 2px 0; }
+  .hero .controls button:not(.danger):not(.armed) { background: var(--surface); }
   .track { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; margin-top: 12px; }
   .track > div { height: 100%; border-radius: 3px; background: var(--mode, var(--muted)); transition: width .4s ease; }
   .usage { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
@@ -106,12 +108,16 @@
   .state-tag.missing { color: var(--bad); } .state-tag.missing .dot { background: var(--bad); }
   .log { max-height: 260px; overflow: auto; }
   .log li { display: grid; grid-template-columns: 64px 1fr; gap: 12px; font-size: 14px; align-items: baseline; }
+  .log li.sub { display: block; }
   .log time { color: var(--faint); font-size: 13px; white-space: nowrap; }
   .log .warn { color: var(--warn); } .log .error { color: var(--bad); }
 
-  .note { background: color-mix(in srgb, var(--warn) 10%, var(--surface)); border-color: color-mix(in srgb, var(--warn) 25%, transparent); }
-  .note b.title { display: block; font-size: 15px; margin-bottom: 4px; }
-  .note p { margin: 6px 0 0; font-size: 14px; color: var(--muted); }
+  details.note { padding: 14px 16px; }
+  details.note summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; gap: 12px; font-size: 15px; font-weight: 600; }
+  details.note summary::-webkit-details-marker { display: none; }
+  details.note summary::after { content: "›"; color: var(--muted); transition: transform .15s ease; }
+  details.note[open] summary::after { transform: rotate(90deg); }
+  .note p { margin: 8px 0 0; font-size: 14px; color: var(--muted); }
   .note p b, .note p i { color: var(--text); }
   .err { color: var(--bad); font-size: 14px; margin-top: 10px; white-space: pre-wrap; }
   .err:empty { display: none; }
@@ -153,9 +159,10 @@
   </section>
 
   <div id="app" class="hidden">
-    <section id="statusCard" class="card normal">
-      <div class="status-top"><i class="dot"></i><span id="stateLabel">Normal</span></div>
-      <div id="state" class="big num">Loading…</div>
+    <section id="statusCard" class="card hero normal">
+      <div class="eyebrow">Current mode</div>
+      <div class="mode-title"><i class="dot"></i><span id="stateLabel">Loading…</span></div>
+      <div id="state" class="big num hidden"></div>
       <div id="stateSub" class="sub"></div>
       <div id="progress" class="track hidden"><div></div></div>
       <div id="sessionControls" class="controls hidden">
@@ -167,23 +174,23 @@
       <div id="err" class="err"></div>
     </section>
 
-    <section class="card note hidden" id="appleCard" style="margin-top:12px">
-      <div id="appleExtend">
-        <b class="title">Also approve it in Screen Time</b>
+    <div class="hidden" id="appleCard" style="margin-top:12px">
+      <details class="card note" id="appleExtend">
+        <summary>Screen Time on Beck's iPhone still applies</summary>
         <p>This only changes Firewalla. On cellular, Apple Downtime and App Limits still apply.</p>
         <p>Have Beck tap <i>Ask For More Time</i>, then approve <b>15 minutes</b> or <b>1 hour</b> to match. Apple's approvals expire on their own.</p>
-      </div>
-      <div id="appleBlock">
-        <b class="title">Wi-Fi only</b>
-        <p>Firewalla blocks only cover Wi-Fi. On cellular, Beck's iPhone can still reach these apps.</p>
+      </details>
+      <details class="card note" id="appleBlock">
+        <summary>Blocks only work on home Wi-Fi</summary>
+        <p>On cellular, Beck's iPhone can still reach these apps.</p>
         <p>To close that gap, turn off cellular data for those apps (Settings → Cellular), then lock it with Screen Time → Content &amp; Privacy → <i>Cellular Data Changes: Don't Allow</i>.</p>
-      </div>
-    </section>
+      </details>
+    </div>
 
     <div class="label">Start</div>
     <section class="card">
       <div class="mode extend">
-        <div class="mode-head"><i class="dot"></i><b>Extend</b><span class="sub">Limits off</span></div>
+        <div class="mode-head"><i class="dot"></i><b>Limits off</b><span class="sub">Bedtime &amp; daily limit paused</span></div>
         <div class="times">
           <button data-start="extend" data-min="5">5 min</button>
           <button data-start="extend" data-min="15">15 min</button>
@@ -192,7 +199,7 @@
         </div>
       </div>
       <div class="mode homework">
-        <div class="mode-head"><i class="dot"></i><b>Homework</b><span class="sub">Limits off, fun blocked</span></div>
+        <div class="mode-head"><i class="dot"></i><b>Homework mode</b><span class="sub">Limits off, fun blocked</span></div>
         <div class="times">
           <button data-start="homework" data-min="5">5 min</button>
           <button data-start="homework" data-min="15">15 min</button>
@@ -201,7 +208,7 @@
         </div>
       </div>
       <div class="mode block">
-        <div class="mode-head"><i class="dot"></i><b>Block fun</b><span class="sub">Games, Discord, video, YouTube</span></div>
+        <div class="mode-head"><i class="dot"></i><b>Block fun</b><span class="sub">Games, video, social &amp; more</span></div>
         <div class="times">
           <button data-start="block" data-min="30">30 min</button>
           <button data-start="block" data-min="60">1 hr</button>
@@ -213,9 +220,9 @@
         <summary>Custom length</summary>
         <div class="custom-row">
           <input id="customMin" class="num" type="number" min="1" max="1440" inputmode="numeric" placeholder="Minutes">
-          <button class="extend" id="customExtend">Extend</button>
+          <button class="extend" id="customExtend">Limits off</button>
           <button class="homework" id="customHomework">Homework</button>
-          <button class="block" id="customBlock">Block</button>
+          <button class="block" id="customBlock">Block fun</button>
         </div>
       </details>
     </section>
@@ -234,7 +241,7 @@
     <section class="card">
       <details id="setup">
         <summary>Setup</summary>
-        <p class="sub">Tick <b>Limit</b> on the rules to pause during extensions (the 8:30 bedtime block and the daily time limit). Tick <b>Block</b> on the rules to switch on during homework and block-fun sessions; those should normally be paused in Firewalla.</p>
+        <p class="sub">Tick <b>Limit</b> on the rules to pause during Limits off and Homework mode (the 8:30 bedtime block and the daily time limit). Tick <b>Block</b> on the rules to switch on during homework and block-fun sessions; those should normally be paused in Firewalla.</p>
         <div id="setupRules" class="sub">Loading rules…</div>
         <button id="saveSetup" class="primary full">Save setup</button>
         <div id="setupErr" class="err"></div>
@@ -313,16 +320,21 @@
     if (!status) return;
     var s = status.session;
     var kind = s ? s.kind : "normal";
-    $("statusCard").className = "card " + kind;
+    $("statusCard").className = "card hero " + kind;
+    $("stateLabel").textContent = { normal: "Normal mode", extend: "Limits off", homework: "Homework mode", block: "Fun blocked" }[kind] || kind;
+    $("state").classList.toggle("hidden", !s);
     if (!s) {
-      $("stateLabel").textContent = "Normal";
-      $("state").textContent = "Limits on";
-      $("stateSub").textContent = "Bedtime and the daily limit are running as usual.";
+      $("stateSub").textContent = "Bedtime and the daily limit are on.";
     } else {
       var left = Math.max(0, Math.round((s.endsAt - Date.now()) / 60000));
-      $("stateLabel").textContent = { extend: "Extension", homework: "Homework", block: "Fun blocked" }[s.kind] || s.kind;
+      var until = fmtTime(s.endsAt);
+      var what = {
+        extend: "Bedtime and the daily limit are paused until " + until + ".",
+        homework: "Limits are paused and fun is blocked until " + until + ".",
+        block: "Fun is blocked until " + until + ". Limits stay on."
+      }[s.kind] || "";
       $("state").textContent = fmtMin(left) + " left";
-      $("stateSub").textContent = s.reverting ? "Restoring rules (retrying)…" : "Until " + fmtTime(s.endsAt) + ", then everything goes back automatically.";
+      $("stateSub").textContent = s.reverting ? "Restoring rules (retrying)…" : what + " Then everything goes back automatically.";
       if (s.startedAt && s.endsAt > s.startedAt) {
         var pct = Math.max(0, Math.min(100, 100 * (s.endsAt - Date.now()) / (s.endsAt - s.startedAt)));
         $("progress").firstElementChild.style.width = pct + "%";
