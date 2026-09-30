@@ -78,8 +78,7 @@
   .usage-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .usage-row b { font-weight: 600; white-space: nowrap; }
   .usage-row .unit { color: var(--muted); font-weight: 500; }
-  .usage-left { font-size: 13px; color: var(--muted); margin-top: 6px; }
-  .usage-left.full { color: var(--bad); font-weight: 600; }
+  .usage-row .reached { color: var(--bad); }
   .usage .track { position: relative; height: 8px; border-radius: 4px; }
   .usage .track > .fill { background: var(--usage); }
   .usage .track > .fill.full { background: var(--bad); }
@@ -380,10 +379,10 @@
       if (r.timeUsage && r.timeUsage.quota) {
         var q = r.timeUsage.quota, used = r.timeUsage.used;
         var pct = Math.min(100, Math.round(100 * used / q));
+        var left = used >= q ? '<span class="reached">Limit reached</span>' : fmtMin(q - used) + " left";
         usage += '<div class="usage"><div class="usage-row"><span class="sub">Internet usage</span><b class="num">' +
-          fmtMin(used) + ' <span class="unit">of</span> ' + fmtMin(q) + '</b></div><div class="track"><div class="fill' + (used >= q ? " full" : "") +
-          '" style="width:' + pct + '%"></div><div class="ticks" style="--step:' + (1500 / q) + '%"></div></div>' +
-          '<div class="usage-left' + (used >= q ? " full" : "") + '">' + (used >= q ? "Limit reached" : fmtMin(q - used) + " left today") + "</div></div>";
+          left + ' <span class="unit">(of ' + fmtMin(q) + ')</span></b></div><div class="track"><div class="fill' + (used >= q ? " full" : "") +
+          '" style="width:' + pct + '%"></div><div class="ticks" style="--step:' + (1500 / q) + '%"></div></div></div>';
       }
     });
     $("usage").innerHTML = usage;
