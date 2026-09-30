@@ -1,7 +1,10 @@
 import { DurableObject } from "cloudflare:workers";
 import { Firewalla } from "./firewalla.js";
 import {
+  bedtimeInfo,
+  extraMinutesToday,
   formatMinutes,
+  nextExtraSince,
   planRevert,
   planStart,
   ruleLabel,
@@ -11,6 +14,7 @@ import {
 
 const RETRY_MS = 2 * 60 * 1000;
 const LOG_LIMIT = 100;
+const EXTRA_KEEP_MS = 3 * 24 * 60 * 60 * 1000;
 const LOGIN_MAX_FAILURES = 5;
 const LOGIN_LOCK_MS = 15 * 60 * 1000;
 
@@ -59,12 +63,23 @@ export class Controller extends DurableObject {
     await this.ctx.storage.put("log", log.slice(0, LOG_LIMIT));
   }
 
+  // Records a finished stretch of "limits off" time (Limits off / Homework mode).
+  async closeExtra(from, to) {
+    const extra = ((await this.ctx.storage.get("extra")) ?? []).filter((x) => x.to > to - EXTRA_KEEP_MS);
+    extra.push({ from, to });
+    await this.ctx.storage.put("extra", extra);
+  }
+
   async status() {
-    const [config, session, log] = await Promise.all([
+    const [config, session, log, extra] = await Promise.all([
       this.config(),
       this.session(),
       this.ctx.storage.get("log"),
+      this.ctx.storage.get("extra"),
     ]);
+    const now = Date.now();
+    const open = session?.extraSince ? [{ from: session.extraSince, to: null }] : [];
+    const extraToday = extraMinutesToday([...(extra ?? []), ...open], now, this.env.TIMEZONE || "America/Los_Angeles");
     let rules = [];
     let error = null;
     try {
@@ -73,6 +88,7 @@ export class Controller extends DurableObject {
       error = e.message;
     }
     const byId = new Map(rules.map((r) => [r.id, r]));
+    const tz = this.env.TIMEZONE || "America/Los_Angeles";
     const describe = (id) => {
       const r = byId.get(id);
       return {
@@ -81,10 +97,13 @@ export class Controller extends DurableObject {
         status: r ? r.status ?? "active" : "missing",
         action: r?.action,
         timeUsage: r?.timeUsage ?? null,
+        // Scheduled block (bedtime): its hours and whether it's in effect right now.
+        bedtime: r && !r.timeUsage ? bedtimeInfo(r.schedule, now, tz) : null,
       };
     };
     return {
-      now: Date.now(),
+      now,
+      extraToday,
       session,
       config,
       limits: config.limitRuleIds.map(describe),
@@ -146,9 +165,12 @@ export class Controller extends DurableObject {
         kind,
         startedAt: current?.startedAt ?? now,
         endsAt: now + mins * 60_000,
+        extraSince: nextExtraSince(current, kind, now),
         changes: plan.changes,
         errors: [],
       };
+      // Switching to Block fun turns the limits back on: the extra time stops here.
+      if (current?.extraSince && !session.extraSince) await this.closeExtra(current.extraSince, now);
       await this.ctx.storage.put("session", session);
       await this.ctx.storage.setAlarm(session.endsAt);
 
@@ -225,6 +247,7 @@ export class Controller extends DurableObject {
       for (const f of failed) await this.log(`Restore failed, retrying: ${f.error}`, "error");
       return session;
     }
+    if (session.extraSince) await this.closeExtra(session.extraSince, Date.now());
     await this.ctx.storage.delete("session");
     await this.ctx.storage.deleteAlarm();
     await this.log(reason);

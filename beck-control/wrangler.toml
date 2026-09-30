@@ -28,6 +28,8 @@ crons = ["*/30 * * * *"]
 [vars]
 # Your MSP domain, e.g. "yourname.firewalla.net" (not secret).
 MSP_DOMAIN = "dn-j2769k.firewalla.net"
+# Time zone for "today" in the extra-time total.
+TIMEZONE = "America/Los_Angeles"
 
 # Secrets (set with `npx wrangler secret put <NAME>`, never commit them):
 #   MSP_TOKEN       Firewalla MSP personal access token

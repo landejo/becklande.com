@@ -71,6 +71,9 @@
   .mode-title .dot { width: 10px; height: 10px; background: var(--mode); box-shadow: 0 0 0 5px color-mix(in srgb, var(--mode) 22%, transparent); margin-right: 5px; }
   .big { font-size: 22px; font-weight: 600; letter-spacing: -.01em; margin: 2px 0; }
   .big .until { color: var(--muted); font-weight: 500; }
+  .blocked-now { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding: 8px 10px; border-radius: 10px; font-size: 14px; font-weight: 600;
+    color: var(--bad); background: color-mix(in srgb, var(--bad) 12%, var(--surface)); }
+  .blocked-now .dot { background: var(--bad); }
   .hero .controls button[data-add] { background: var(--surface); }
   .track { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; margin-top: 12px; }
   .track > div { height: 100%; border-radius: 3px; background: var(--mode, var(--muted)); transition: width .4s ease; }
@@ -80,6 +83,8 @@
   .usage-row b { font-weight: 600; white-space: nowrap; }
   .usage-row .unit { color: var(--muted); font-weight: 500; }
   .usage-row .reached { color: var(--bad); }
+  .usage-extra { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--muted); margin-top: 8px; }
+  .usage-extra b { color: var(--extend); font-weight: 600; }
   .usage .track { position: relative; height: 8px; border-radius: 4px; }
   .usage .track > .fill { background: var(--usage); }
   .usage .track > .fill.full { background: var(--bad); }
@@ -214,6 +219,7 @@
       <div class="mode-title"><span id="stateLabel">Loading…</span><i class="dot" aria-hidden="true"></i></div>
       <div id="state" class="big num hidden"></div>
       <div id="stateSub" class="sub"></div>
+      <div id="blockedNow" class="blocked-now hidden"></div>
       <div id="progress" class="track hidden"><div></div></div>
       <div id="sessionControls" class="controls hidden">
         <button data-add="15">+15 min</button>
@@ -404,7 +410,7 @@
     $("stateLabel").textContent = kind === "normal" ? "Normal mode" : (MODE_NAMES[kind] || kind);
     $("state").classList.toggle("hidden", !s);
     if (!s) {
-      $("stateSub").textContent = "Bedtime and the daily limit are on.";
+      $("stateSub").textContent = limitsSentence();
     } else {
       var left = Math.max(0, Math.round((s.endsAt - Date.now()) / 60000));
       $("state").innerHTML = fmtMin(left) + ' left <span class="until">· until ' + esc(fmtTime(s.endsAt)) + "</span>";
@@ -419,6 +425,10 @@
       }
     }
     $("progress").classList.toggle("hidden", !s || !s.startedAt);
+    // While the limits are in effect (Normal mode, Block fun), say if they're blocking Beck right now.
+    var off = (!s || s.kind === "block") ? blockedNow() : "";
+    $("blockedNow").innerHTML = off ? '<i class="dot"></i>' + esc(off) : "";
+    $("blockedNow").classList.toggle("hidden", !off);
     $("sessionControls").classList.toggle("hidden", !s);
     var hidden = hiddenTips();
     var showExtend = !!s && s.kind !== "block" && hidden.indexOf("appleExtend") < 0;
@@ -434,6 +444,27 @@
   }
 
   var logAll = false;
+
+  function bedtimeRule() { return status.limits.filter(function (r) { return r.bedtime; })[0]; }
+  function quotaRule() { return status.limits.filter(function (r) { return r.timeUsage && r.timeUsage.quota; })[0]; }
+
+  // "8:30pm bedtime and the 2h 45m daily limit are on." from the rules' actual settings.
+  function limitsSentence() {
+    var b = bedtimeRule(), q = quotaRule(), parts = [];
+    if (b) parts.push(b.bedtime.start + " bedtime");
+    if (q) parts.push((b ? "the " : "") + fmtMin(q.timeUsage.quota) + " daily limit");
+    if (!parts.length) return "Bedtime and the daily limit are on.";
+    var text = parts.join(" and ");
+    return text.charAt(0).toUpperCase() + text.slice(1) + (parts.length > 1 ? " are on." : " is on.");
+  }
+
+  // Why Beck's internet is off right now, or "" if it isn't.
+  function blockedNow() {
+    var b = bedtimeRule(), q = quotaRule();
+    if (b && b.status === "active" && b.bedtime.active) return "Internet off now · bedtime until " + b.bedtime.end;
+    if (q && q.status === "active" && q.timeUsage.used >= q.timeUsage.quota) return "Internet off now · daily limit used up";
+    return "";
+  }
 
   // One line for the rules card: are the limits on, are the blocks on?
   function rulesSummary() {
@@ -464,6 +495,9 @@
           '" style="width:' + pct + '%"></div><div class="ticks" style="--step:' + (1500 / q) + '%"></div></div></div>';
       }
     });
+    if (status.extraToday > 0) {
+      usage += '<div class="usage-extra"><span>Extra time today</span><b class="num">+' + fmtMin(status.extraToday) + "</b></div>";
+    }
     $("usage").innerHTML = usage;
 
     $("rulesSummary").innerHTML = rulesSummary();

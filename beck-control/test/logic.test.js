@@ -137,3 +137,67 @@ test("block sessions may run up to 24 hours; others 4", () => {
   assert.throws(() => validateMinutes(900, "extend"));
   assert.throws(() => validateMinutes(1441, "block"));
 });
+
+import { extraMinutesToday, nextExtraSince, startOfDay } from "../src/logic.js";
+
+const TZ = "America/Los_Angeles";
+// 2026-09-30 20:00 PDT = 2026-10-01 03:00 UTC
+const EVENING = Date.UTC(2026, 9, 1, 3, 0, 0);
+const MIN = 60_000;
+
+test("startOfDay is local midnight", () => {
+  assert.equal(startOfDay(EVENING, TZ), Date.UTC(2026, 8, 30, 7, 0, 0)); // 00:00 PDT
+});
+
+test("nextExtraSince: starts, carries over, and stops for Block fun", () => {
+  assert.equal(nextExtraSince(null, "extend", 100), 100);
+  assert.equal(nextExtraSince({ kind: "extend", extraSince: 50 }, "homework", 100), 50);
+  assert.equal(nextExtraSince({ kind: "block" }, "extend", 100), 100);
+  assert.equal(nextExtraSince({ kind: "extend", extraSince: 50 }, "block", 100), null);
+});
+
+test("extraMinutesToday sums closed and open intervals", () => {
+  const intervals = [
+    { from: EVENING - 90 * MIN, to: EVENING - 60 * MIN }, // 30m
+    { from: EVENING - 15 * MIN, to: null }, // still running: 15m
+  ];
+  assert.equal(extraMinutesToday(intervals, EVENING, TZ), 45);
+});
+
+test("extraMinutesToday ignores time before local midnight", () => {
+  const midnight = startOfDay(EVENING, TZ);
+  const intervals = [
+    { from: midnight - 60 * MIN, to: midnight + 20 * MIN }, // only 20m is today
+    { from: midnight - 3 * 60 * MIN, to: midnight - 2 * 60 * MIN }, // yesterday
+  ];
+  assert.equal(extraMinutesToday(intervals, EVENING, TZ), 20);
+});
+
+import { bedtimeInfo, clockLabel } from "../src/logic.js";
+
+const bedtime = { cronTime: "30 20 * * *", duration: 40500 }; // 8:30pm for 11h15m
+const pdt = (h, m) => Date.UTC(2026, 8, 30, h + 7, m); // Sep 30 2026, h:m PDT
+
+test("clockLabel", () => {
+  assert.equal(clockLabel(20 * 60 + 30), "8:30pm");
+  assert.equal(clockLabel(7 * 60 + 45 + 1440), "7:45am");
+  assert.equal(clockLabel(0), "12am");
+  assert.equal(clockLabel(12 * 60), "12pm");
+});
+
+test("bedtimeInfo labels and active window", () => {
+  const evening = bedtimeInfo(bedtime, pdt(21, 0), TZ);
+  assert.deepEqual([evening.start, evening.end, evening.active], ["8:30pm", "7:45am", true]);
+  assert.equal(evening.endsAt, pdt(21, 0) + (10 * 60 + 45) * 60_000);
+  assert.equal(bedtimeInfo(bedtime, pdt(6, 0), TZ).active, true); // early morning, still bedtime
+  assert.equal(bedtimeInfo(bedtime, pdt(8, 0), TZ).active, false);
+  assert.equal(bedtimeInfo(bedtime, pdt(20, 29), TZ).active, false);
+});
+
+test("bedtimeInfo respects weekdays and rejects unusual crons", () => {
+  // Sep 30 2026 is a Wednesday (3); a Mon-Tue-only schedule is off tonight.
+  assert.equal(bedtimeInfo({ ...bedtime, cronTime: "30 20 * * 1,2" }, pdt(21, 0), TZ).active, false);
+  assert.equal(bedtimeInfo({ ...bedtime, cronTime: "30 20 * * 3" }, pdt(21, 0), TZ).active, true);
+  assert.equal(bedtimeInfo({ cronTime: "*/5 * * * *", duration: 60 }, pdt(21, 0), TZ), null);
+  assert.equal(bedtimeInfo(null, pdt(21, 0), TZ), null);
+});
