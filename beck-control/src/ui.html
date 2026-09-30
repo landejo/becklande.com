@@ -73,7 +73,6 @@
   .big .until { color: var(--muted); font-weight: 500; }
   .blocked-now { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding: 8px 10px; border-radius: 10px; font-size: 14px; font-weight: 600;
     color: var(--bad); background: color-mix(in srgb, var(--bad) 12%, var(--surface)); }
-  .blocked-now .dot { background: var(--bad); }
   .hero .controls button[data-add] { background: var(--surface); }
   .track { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; margin-top: 12px; }
   .track > div { height: 100%; border-radius: 3px; background: var(--mode, var(--muted)); transition: width .4s ease; }
@@ -427,7 +426,7 @@
     $("progress").classList.toggle("hidden", !s || !s.startedAt);
     // While the limits are in effect (Normal mode, Block fun), say if they're blocking Beck right now.
     var off = (!s || s.kind === "block") ? blockedNow() : "";
-    $("blockedNow").innerHTML = off ? '<i class="dot"></i>' + esc(off) : "";
+    $("blockedNow").textContent = off;
     $("blockedNow").classList.toggle("hidden", !off);
     $("sessionControls").classList.toggle("hidden", !s);
     var hidden = hiddenTips();
