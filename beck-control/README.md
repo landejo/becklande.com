@@ -28,7 +28,7 @@ It runs as a Cloudflare Worker (free plan). Your Firewalla token stays in Cloudf
 
 ### 1. Firewalla MSP token
 
-In the MSP portal: **Account Settings → Create New Token**. It needs write access, not a read-only token. Note your MSP domain, e.g. `yourname.firewalla.net`.
+In the MSP portal: **MSP Settings → MSP API → Create New Token**. It needs write access, not a read-only token. Note your MSP domain, e.g. `yourname.firewalla.net`.
 
 ### 2. Cloudflare
 
