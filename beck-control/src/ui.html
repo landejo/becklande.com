@@ -53,7 +53,7 @@
   /* Status */
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex: none; }
   .normal { --mode: var(--ok); } .extend { --mode: var(--extend); } .homework { --mode: var(--homework); } .block { --mode: var(--block); }
-  .hero { background: color-mix(in srgb, var(--mode) 9%, var(--surface)); border: 1.5px solid color-mix(in srgb, var(--mode) 55%, transparent); }
+  .hero { --hero-bg: color-mix(in srgb, var(--mode) 9%, var(--surface)); background: var(--hero-bg); border: 1.5px solid color-mix(in srgb, var(--mode) 55%, transparent); }
   .eyebrow { font-size: 12px; font-weight: 600; color: var(--muted); }
   .mode-title { display: flex; align-items: center; gap: 10px; font-size: 32px; font-weight: 700; letter-spacing: -.025em; line-height: 1.15; color: var(--mode); margin: 2px 0 4px; }
   .mode-title .dot { width: 10px; height: 10px; background: var(--mode); }
@@ -65,7 +65,14 @@
   .usage-row { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
   .usage-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .usage-row b { font-weight: 600; white-space: nowrap; }
-  .usage .track > div { background: var(--text); opacity: .7; }
+  .usage .track { position: relative; height: 8px; border-radius: 4px; }
+  .usage .track > .fill { background: var(--muted); }
+  .usage .track > .fill.full { background: var(--bad); }
+  /* 15-minute markers: gaps in the card color every --step. */
+  .usage .track > .ticks {
+    position: absolute; inset: 0; width: auto; border-radius: 0;
+    background: repeating-linear-gradient(to right, transparent 0 calc(var(--step) - 2px), var(--hero-bg) calc(var(--step) - 2px) var(--step));
+  }
   .controls { display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 8px; margin-top: 16px; }
   .controls button { white-space: nowrap; padding: 0 8px; }
   button.danger { background: color-mix(in srgb, var(--bad) 14%, var(--surface)); color: var(--bad); }
@@ -355,9 +362,11 @@
     var usage = "";
     status.limits.forEach(function (r) {
       if (r.timeUsage && r.timeUsage.quota) {
-        var pct = Math.min(100, Math.round(100 * r.timeUsage.used / r.timeUsage.quota));
+        var q = r.timeUsage.quota, used = r.timeUsage.used;
+        var pct = Math.min(100, Math.round(100 * used / q));
         usage += '<div class="usage"><div class="usage-row"><span class="sub">' + esc(r.label) + '</span><b class="num">' +
-          fmtMin(r.timeUsage.used) + " / " + fmtMin(r.timeUsage.quota) + '</b></div><div class="track"><div style="width:' + pct + '%"></div></div></div>';
+          fmtMin(used) + " / " + fmtMin(q) + '</b></div><div class="track"><div class="fill' + (used >= q ? " full" : "") +
+          '" style="width:' + pct + '%"></div><div class="ticks" style="--step:' + (1500 / q) + '%"></div></div></div>';
       }
     });
     $("usage").innerHTML = usage;
