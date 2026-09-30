@@ -489,8 +489,8 @@
         var q = r.timeUsage.quota, used = r.timeUsage.used;
         var pct = Math.min(100, Math.round(100 * used / q));
         var left = used > q ? '<span class="reached">' + fmtMin(used - q) + " over</span>"
-          : used === q ? '<span class="reached">Limit reached</span>' : fmtMin(q - used) + " left";
-        usage += '<div class="usage"><div class="usage-row"><span class="sub">Internet usage</span><b class="num">' +
+          : used === q ? '<span class="reached">Limit reached</span>' : fmtMin(q - used);
+        usage += '<div class="usage"><div class="usage-row"><span class="sub">' + (used >= q ? "Internet today" : "Internet left today") + '</span><b class="num">' +
           left + ' <span class="unit">(of ' + fmtMin(q) + ')</span></b></div><div class="track"><div class="fill' + (used >= q ? " full" : "") +
           '" style="width:' + pct + '%"></div><div class="ticks" style="--step:' + (1500 / q) + '%"></div></div></div>';
       }
