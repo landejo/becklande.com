@@ -201,3 +201,9 @@ test("bedtimeInfo respects weekdays and rejects unusual crons", () => {
   assert.equal(bedtimeInfo({ cronTime: "*/5 * * * *", duration: 60 }, pdt(21, 0), TZ), null);
   assert.equal(bedtimeInfo(null, pdt(21, 0), TZ), null);
 });
+
+test("bedtimeInfo says whether it starts tonight", () => {
+  // Wednesday: a Sun-Thu schedule applies tonight, a Fri-Sat one doesn't.
+  assert.equal(bedtimeInfo({ cronTime: "30 20 * * 0,1,2,3,4", duration: 36000 }, pdt(12, 0), TZ).tonight, true);
+  assert.equal(bedtimeInfo({ cronTime: "0 23 * * 5,6", duration: 30600 }, pdt(12, 0), TZ).tonight, false);
+});

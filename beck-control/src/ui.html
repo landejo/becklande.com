@@ -101,6 +101,7 @@
   .hero button.to-normal.armed { background: var(--ok); color: var(--surface); }
 
   /* Start */
+  .mode-card { margin-top: 16px; border: 1.5px solid color-mix(in srgb, var(--text) 24%, transparent); }
   .mode + .mode { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
   .mode-head { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; row-gap: 2px; margin-bottom: 10px; }
   .mode-head .dot { background: var(--mode); align-self: center; }
@@ -244,8 +245,7 @@
       </details>
     </div>
 
-    <div class="label">Change mode</div>
-    <section class="card">
+    <section class="card mode-card">
       <div class="mode extend" data-mode="extend">
         <div class="mode-head"><i class="dot"></i><b>Limits off</b><span class="sub">Bedtime &amp; daily limit paused</span><span class="running hidden">Running</span></div>
         <div class="times">
@@ -444,7 +444,11 @@
 
   var logAll = false;
 
-  function bedtimeRule() { return status.limits.filter(function (r) { return r.bedtime; })[0]; }
+  // Tonight's bedtime rule (there may be one for school nights and one for weekends).
+  function bedtimeRule() {
+    var all = status.limits.filter(function (r) { return r.bedtime; });
+    return all.filter(function (r) { return r.bedtime.tonight; })[0] || all[0];
+  }
   function quotaRule() { return status.limits.filter(function (r) { return r.timeUsage && r.timeUsage.quota; })[0]; }
 
   // "8:30pm bedtime and the 2h 45m daily limit are on." from the rules' actual settings.
@@ -459,8 +463,9 @@
 
   // Why Beck's internet is off right now, or "" if it isn't.
   function blockedNow() {
-    var b = bedtimeRule(), q = quotaRule();
-    if (b && b.status === "active" && b.bedtime.active) return "Internet off now · bedtime until " + b.bedtime.end;
+    var q = quotaRule();
+    var b = status.limits.filter(function (r) { return r.bedtime && r.status === "active" && r.bedtime.active; })[0];
+    if (b) return "Internet off now · bedtime until " + b.bedtime.end;
     if (q && q.status === "active" && q.timeUsage.used >= q.timeUsage.quota) return "Internet off now · daily limit used up";
     return "";
   }

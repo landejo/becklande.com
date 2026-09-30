@@ -191,5 +191,7 @@ export function bedtimeInfo(schedule, now, timeZone) {
     end: clockLabel(startMin + durMin),
     active,
     endsAt: active ? now + (durMin - elapsed) * 60_000 : null,
+    // Whether this schedule starts tonight (for picking which bedtime to show).
+    tonight: !days || days.includes(weekday),
   };
 }
