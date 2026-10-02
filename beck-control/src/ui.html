@@ -188,6 +188,8 @@
   details#setup h3 { font-size: 15px; margin: 24px 0 4px; }
   details#setup h3:first-of-type { margin-top: 16px; }
   .quiet { background: var(--surface-2); color: var(--text); }
+  .missing-box { margin-top: 12px; padding: 10px 12px; border-radius: 12px; font-size: 14px; color: var(--bad);
+    background: color-mix(in srgb, var(--bad) 10%, var(--surface)); }
   .setup-rule { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); font-size: 14px; }
   .setup-rule .meta { color: var(--faint); font-size: 12px; word-break: break-all; }
   .setup-rule label { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 4px; }
@@ -306,6 +308,10 @@
         <summary>Settings</summary>
         <h3>Rules</h3>
         <p class="sub">Tick <b>Limit</b> on the rules to pause during Limits off and Homework mode (the 8:30 bedtime block and the daily time limit). Tick <b>Block</b> on the rules to switch on during homework and block-fun sessions; those should normally be paused in Firewalla.</p>
+        <div id="missingRules" class="missing-box hidden">
+          <span id="missingText"></span>
+          <button id="removeMissing" class="quiet full">Remove missing rules</button>
+        </div>
         <div id="setupRules" class="sub">Loading rules…</div>
         <button id="saveSetup" class="primary full">Save rules</button>
         <div id="setupErr" class="err"></div>
@@ -637,6 +643,14 @@
     $("setupErr").textContent = "";
     api("GET", "/api/rules").then(function (d) {
       setupData = d;
+      var present = d.rules.map(function (r) { return r.id; });
+      var gone = function (ids) { return ids.filter(function (id) { return present.indexOf(id) < 0; }); };
+      var missLimit = gone(d.config.limitRuleIds), missBlock = gone(d.config.homeworkRuleIds);
+      var n = missLimit.length + missBlock.length;
+      $("missingRules").classList.toggle("hidden", !n);
+      $("missingText").textContent = n ? (n > 1 ? n + " rules in this app no longer exist" : "1 rule in this app no longer exists") +
+        " in Firewalla (" + [missLimit.length ? missLimit.length + " limit" : "", missBlock.length ? missBlock.length + " block" : ""].filter(Boolean).join(", ") +
+        "). Remove " + (n > 1 ? "them" : "it") + " here, then recreate any you still want below." : "";
       var lim = d.config.limitRuleIds, hw = d.config.homeworkRuleIds;
       $("setupRules").innerHTML = d.rules.length ? d.rules.map(function (r) {
         return '<div class="setup-rule"><div>' + esc(r.label) + '<div class="meta">' + esc(describeRule(r)) + "</div></div>" +
@@ -654,6 +668,17 @@
   }
 
   $("setup").addEventListener("toggle", function () { if ($("setup").open) loadSetup(); });
+
+  $("removeMissing").onclick = function () {
+    var btn = this;
+    confirmTap(btn, function () {
+      var present = setupData.rules.map(function (r) { return r.id; });
+      var keep = function (ids) { return ids.filter(function (id) { return present.indexOf(id) >= 0; }); };
+      api("POST", "/api/config", { limitRuleIds: keep(setupData.config.limitRuleIds), homeworkRuleIds: keep(setupData.config.homeworkRuleIds) })
+        .then(function () { toast("Missing rules removed"); loadSetup(); refresh(); })
+        .catch(function (e) { $("setupErr").textContent = e.message; });
+    });
+  };
 
   $("saveSetup").onclick = function () {
     var ids = function (attr) {

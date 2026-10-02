@@ -188,7 +188,10 @@ export class Controller extends DurableObject {
 
       const what = { extend: "Limits off", homework: "Homework mode", block: "Fun blocked" }[kind];
       await this.log(`${what} · ${formatMinutes(mins)}${via(by)}`);
-      if (plan.missing.length) await this.log(`Rules not found on Firewalla: ${plan.missing.join(", ")}`, "warn");
+      if (plan.missing.length) {
+        const n = plan.missing.length;
+        await this.log(`${n} rule${n > 1 ? "s" : ""} no longer in Firewalla; open Settings to fix`, "warn");
+      }
       for (const e of session.errors) await this.log(e, "error");
       return session;
     });

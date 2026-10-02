@@ -75,6 +75,13 @@ test("missing rules are reported, not fatal", () => {
   assert.deepEqual(plan.ops, [{ id: "quota", op: "pause" }]);
 });
 
+test("missing block rules don't warn when the mode doesn't use them", () => {
+  const plan = planStart({ kind: "extend", config, rules: rules().filter((r) => r.id !== "games") });
+  assert.deepEqual(plan.missing, []);
+  const hw = planStart({ kind: "homework", config, rules: rules().filter((r) => r.id !== "games") });
+  assert.deepEqual(hw.missing, ["games"]);
+});
+
 test("unknown kind is rejected", () => {
   assert.throws(() => planStart({ kind: "party", config, rules: rules() }));
 });

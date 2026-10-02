@@ -52,7 +52,10 @@ export function planStart({ kind, config, rules, changes = [] }) {
     const [fromStatus, op] = wantDid === "paused" ? ["active", "pause"] : ["paused", "resume"];
     for (const id of ids) {
       const rule = byId.get(id);
-      if (!rule) { missing.push(id); continue; }
+      if (!rule) {
+        if (wantDid) missing.push(id); // only rules this mode needs to change
+        continue;
+      }
       const status = rule.status ?? "active";
       if (wantDid) {
         if (status === fromStatus && !touched(id)) {
